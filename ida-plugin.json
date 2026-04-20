@@ -17,6 +17,7 @@
     },
     "authors": [
       {"name": "Threatray AG", "email": "support@threatray.com"}
-    ]
+    ],
+    "logoPath": "images/logo.png"
   }
 }
