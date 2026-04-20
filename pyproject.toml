@@ -21,7 +21,7 @@ dev = [
     "vulture~=2.11",
     "mypy~=1.10",
     "types-requests~=2.31",
-    "types-setuptools~=69.5",
+    "types-setuptools>=69.5,<83.0",
     "requests-mock~=1.12",
 ]
 
