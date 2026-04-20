@@ -25,6 +25,8 @@ DUAL_USE_TOOL
 HACK_TOOL
 FUNCTIONS_CODE_DETECTIONS_RESPONSE  # used by internal overlay mock
 RETROHUNT_BY_FUNCTION_RESPONSE  # used by internal overlay mock
+CodeSignature.id  # used by internal overlay
+Family.id  # used by internal overlay
 eventFilter
 timerEvent
 addItems
