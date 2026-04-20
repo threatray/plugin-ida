@@ -1,0 +1,22 @@
+{
+  "IDAMetadataDescriptorVersion": 1,
+  "plugin": {
+    "name": "threatray",
+    "entryPoint": "threatray_plugin.py",
+    "version": "3.0.0",
+    "description": "Attribute functions to malware families and libraries, find function clusters across samples, and retrohunt similar functions on the Threatray platform.",
+    "license": "MIT",
+    "idaVersions": [">=8.4"],
+    "platforms": ["windows-x86_64", "linux-x86_64", "macos-x86_64", "macos-aarch64"],
+    "categories": ["malware-analysis", "integration-with-third-parties-interoperability"],
+    "keywords": ["threat-intelligence", "malware", "retrohunt", "code-similarity", "function-clustering"],
+    "pythonDependencies": ["requests>=2.27"],
+    "urls": {
+      "repository": "https://github.com/threatray/plugin-ida",
+      "homepage": "https://threatray.com"
+    },
+    "authors": [
+      {"name": "Threatray AG", "email": "support@threatray.com"}
+    ]
+  }
+}

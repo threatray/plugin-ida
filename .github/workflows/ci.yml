@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c5e2880b7c3d28b5b5 # v5.6.0
+        with:
+          python-version: "3.13"
+      - run: pip install uv
+      - run: uv pip install -r pyproject.toml --extra dev --system
+      - run: ruff check .
+      - run: python -m vulture . vulture_whitelist.py
+
+  type-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c5e2880b7c3d28b5b5 # v5.6.0
+        with:
+          python-version: "3.13"
+      - run: pip install uv
+      - run: uv pip install -r pyproject.toml --extra dev --system
+      - run: python -m mypy .
+
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c5e2880b7c3d28b5b5 # v5.6.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install uv
+      - run: uv pip install -r pyproject.toml --extra dev --system
+      - run: python tests/unit/run_tests.py

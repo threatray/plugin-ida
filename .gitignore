@@ -1,0 +1,17 @@
+## Python
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.whl
+
+# Python wheel
+build/
+dist/
+*.egg-info
+
+# IDE files
+.idea/
+
+# Project files
+out/
+coverage.xml

@@ -1,0 +1,96 @@
+services:
+  threatray-ida: &threatray-ida
+    user: "${UID:-${SNAP_UID:-1000}}:${GID:-${SNAP_GID:-1000}}"
+
+    build:
+      context: .
+      target: base
+      args:
+        VERSION: 3.13
+
+    environment:
+      LOG_LEVEL: DEBUG
+
+    volumes:
+      - .:/app/threatray-ida
+    profiles:
+      - standard
+
+  threatray-ida-int-tests-latest:
+    <<: *threatray-ida
+    command: /app/venv/bin/python3 tests/integration/run_tests.py
+    profiles:
+      - int-tests-latest
+
+  threatray-ida-unit-tests-latest:
+    <<: *threatray-ida
+    command: /app/venv/bin/python3 tests/unit/run_tests.py
+    profiles:
+      - unit-tests-latest
+
+  type-check-latest:
+    <<: *threatray-ida
+    command: /app/venv/bin/python3 -m mypy /app/threatray-ida
+
+  ruff-latest:
+    <<: *threatray-ida
+    command: /app/venv/bin/python3 -m ruff check /app/threatray-ida
+    profiles:
+      - lint
+
+  ruff-external:
+    user: "${UID:-${SNAP_UID:-1000}}:${GID:-${SNAP_GID:-1000}}"
+
+    build:
+      context: .
+      target: external
+    command: /app/venv/bin/python3 -m ruff check /app/threatray-ida --no-cache
+    profiles:
+      - lint
+
+  ruff-fix:
+    <<: *threatray-ida
+    command: /app/venv/bin/python3 -m ruff check /app/threatray-ida --fix
+    profiles:
+      - lint-fix
+
+  vulture:
+    <<: *threatray-ida
+    command: /app/venv/bin/python3 -m vulture /app/threatray-ida vulture_whitelist.py
+    profiles:
+      - lint
+
+  vulture_whitelist:
+    <<: *threatray-ida
+    command: /app/venv/bin/python3 -m vulture /app/threatray-ida --make-whitelist
+    profiles:
+      - lint
+
+  threatray-ida-3-10: &threatray-ida-3-10
+    user: "${UID:-${SNAP_UID:-1000}}:${GID:-${SNAP_GID:-1000}}"
+
+    build:
+      context: .
+      target: base
+      args:
+        VERSION: "3.10"
+
+    environment:
+      LOG_LEVEL: DEBUG
+
+    volumes:
+      - .:/app/threatray-ida
+    profiles:
+      - standard
+
+  threatray-ida-int-tests-3-10:
+    <<: *threatray-ida-3-10
+    command: /app/venv/bin/python3 tests/integration/run_tests.py
+    profiles:
+      - int-tests-3-10
+
+  threatray-ida-unit-tests-3-10:
+    <<: *threatray-ida-3-10
+    command: /app/venv/bin/python3 tests/unit/run_tests.py
+    profiles:
+      - unit-tests-3-10

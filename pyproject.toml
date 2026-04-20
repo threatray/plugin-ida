@@ -1,0 +1,67 @@
+[project]
+name = "threatray-ida"
+version = "3.0.0"
+description = "Threatray IDA Plugin"
+authors = [{name = "Threatray", email = "operations@threatray.com"}]
+requires-python = ">=3.10"
+dependencies = [
+    "requests~=2.27",
+    "pyqt5~=5.15",
+    "pyqt5-sip~=12.16",
+]
+
+# Note: there is still a requirements.txt file which needs to be in sync with these dependencies.
+# The requirements.txt file is published for customers
+
+[project.optional-dependencies]
+dev = [
+    "coverage~=7.4",
+    "ruff~=0.8",
+    "PyHamcrest~=2.1",
+    "vulture~=2.11",
+    "mypy~=1.10",
+    "types-requests~=2.31",
+    "types-setuptools~=69.5",
+    "requests-mock~=1.12",
+]
+
+[tool.uv]
+index-url = "https://pypi.org/simple"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "F", # pyflakes (includes dead code detection)
+    "I", # isort (import sorting)
+    "PLC", # pylint convention
+    "PLE", # pylint error
+    "PLR", # pylint refactor
+    "PLW", # pylint warning
+    "RUF", # Ruff-specific rules (includes additional dead code checks)
+]
+
+ignore = [
+    "PLR2004", # magic value comparison
+    "RUF012", # mutable-class-default (Pydantic Config classes)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"vulture_whitelist.py" = ["ALL"]
+
+[tool.ruff.lint.pylint]
+max-args = 6
+max-branches = 12
+max-returns = 6
+max-statements = 50
+max-nested-blocks = 5
+max-public-methods = 20
+max-bool-expr = 5
+max-locals = 21
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10

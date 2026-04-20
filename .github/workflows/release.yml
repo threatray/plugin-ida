@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: step-security/harden-runner@f808768d1510423e83855289c910610ca9b43176 # v2.17.0
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Build release zip
+        run: |
+          mkdir release
+          cp -r threatray_ida release/
+          cp threatray_plugin.py release/
+          cp requirements.txt release/
+          cp CHANGELOG.md release/
+          cp README.md release/
+          cp LICENSE release/
+          cp -r images release/
+          cp ida-plugin.json release/ 2>/dev/null || true
+
+          cd release
+          zip -r ../threatray-ida-${{ github.ref_name }}.zip .
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3
+        with:
+          subject-path: threatray-ida-${{ github.ref_name }}.zip
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create ${{ github.ref_name }} \
+            threatray-ida-${{ github.ref_name }}.zip \
+            --title "${{ github.ref_name }}" \
+            --generate-notes
