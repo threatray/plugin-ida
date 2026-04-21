@@ -68,7 +68,7 @@ It annotates each function’s name, adds a comment, and highlights it with colo
 - Double-clicking the `Reference Malware File` column opens the analysis of the first hash in Threatray.
 - You can launch a `Retrohunt Functions` query from the context menu with one or more selected addresses.
 
-## Find Function Clusters
+### Find Function Clusters
 
 The `Find Function Clusters` features finds shared functions across binaries and see how often they occur in the
 sample set.
@@ -95,7 +95,7 @@ Select one or more functions from the functions list view, or right-click a func
 
 When multiple functions are selected, you can set a threshold value, which specifies how many of the selected functions must match in a file for it to be considered a result.
 
-<img alt="Retrohunt Functions Settings" src="./images/retrohunt_functions_settings.jpg" width="480"/><br />
+<img alt="Retrohunt Functions Settings" src="./images/retrohunt_functions_settings.png" width="480"/><br />
 <i>Retrohunt Functions Settings</i><br /><br />
 
 <img alt="Retrohunt Functions Results" src="./images/retrohunt_functions_results.jpg" width="1024"/><br />
