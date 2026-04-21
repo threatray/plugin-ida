@@ -6,7 +6,7 @@
     "version": "3.0.0",
     "description": "Attribute functions to malware families and libraries, find function clusters across samples, and retrohunt similar functions on the Threatray platform.",
     "license": "MIT",
-    "idaVersions": [">=8.4"],
+    "idaVersions": ["8.4", "8.4sp1", "8.4sp2", "8.5", "9.0", "9.0sp1", "9.1", "9.2", "9.3", "9.4", "10.0"],
     "platforms": ["windows-x86_64", "linux-x86_64", "macos-x86_64", "macos-aarch64"],
     "categories": ["malware-analysis", "integration-with-third-parties-interoperability"],
     "keywords": ["threat-intelligence", "malware", "retrohunt", "code-similarity", "function-clustering"],
@@ -17,6 +17,7 @@
     },
     "authors": [
       {"name": "Threatray AG", "email": "support@threatray.com"}
-    ]
+    ],
+    "logoPath": "images/logo.png"
   }
 }
