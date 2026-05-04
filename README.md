@@ -44,7 +44,7 @@ $ /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versi
 
 The plugin’s features are available via the Threatray entry in IDA’s right-click context menu.
 
-![Context menu](./images/context_menu.jpg)
+![Context menu](./images/context_menu.png)
 
 ### General tips
 
@@ -58,12 +58,13 @@ The plugin’s features are available via the Threatray entry in IDA’s right-c
 The `Attribute Functions` feature identifies which malware families or libraries functions belong to.
 It annotates each function’s name, adds a comment, and highlights it with color based on Threatray’s verdict.
 
-![Attribute Functions Settings](./images/attribute_functions_settings.jpg)
-<i>Attribute Functions Settings</i>
-<br /><br />
+![Attribute Functions Settings](./images/attribute_functions_settings.png)
+
+*Attribute Functions Settings*
 
 ![Attribute Functions Results](./images/attribute_functions_results.jpg)
-<i>Attribute Functions Results</i>
+
+*Attribute Functions Results*
 
 - Double-clicking the `Address` column jumps to the function view (also available via context menu).
 - Double-clicking the `Reference Malware File` column opens the analysis of the first hash in Threatray.
@@ -80,11 +81,13 @@ By default, benign code is excluded from clustering, but this can be enabled in 
 
 If a function from the current file has multiple matches in another file, a maximum of three matches per file are displayed.
 
-![Find Function Clusters Settings](./images/find_function_clusters_settings.jpg)
-<i>Find Function Clusters Settings</i><br /><br />
+![Find Function Clusters Settings](./images/find_function_clusters_settings.png)
+
+*Find Function Clusters Settings*
 
 ![Find Function Clusters Results](./images/find_function_clusters_results.jpg)
-<i>Find Function Clusters Results</i>
+
+*Find Function Clusters Results*
 
 - Double-click a `Query Function Address` to jump to the function view (also available via context menu).
 - You can run `Retrohunt Functions` from the context menu with one or more selected addresses.
@@ -98,10 +101,12 @@ Select one or more functions from the functions list view, or right-click a func
 When multiple functions are selected, you can set a threshold value, which specifies how many of the selected functions must match in a file for it to be considered a result.
 
 ![Retrohunt Functions Settings](./images/retrohunt_functions_settings.png)
-<i>Retrohunt Functions Settings</i><br /><br />
+
+*Retrohunt Functions Settings*
 
 ![Retrohunt Functions Results](./images/retrohunt_functions_results.jpg)
-<i>Retrohunt Functions Results</i>
+
+*Retrohunt Functions Results*
 
 - With multiple query functions, the column `Query To Matching Function Address` lists matches as
   `input function address`->`matching function address in the given file`.
