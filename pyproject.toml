@@ -1,6 +1,6 @@
 [project]
 name = "threatray-ida"
-version = "3.0.0"
+version = "3.0.1"
 description = "Threatray IDA Plugin"
 authors = [{name = "Threatray", email = "operations@threatray.com"}]
 requires-python = ">=3.10"
@@ -27,6 +27,7 @@ dev = [
 
 [tool.uv]
 index-url = "https://pypi.org/simple"
+exclude-newer = "7 days"
 
 [tool.ruff]
 line-length = 120

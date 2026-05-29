@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.0.1] - 2026-05-29
+
+- Added PyPI cooldown for supply-chain protection (`exclude-newer = "7 days"`).
+
 ## [3.0.0] - 2026-04-16
 
 - Dropped support for Python 3.8; the plugin now requires Python 3.10 or newer.
