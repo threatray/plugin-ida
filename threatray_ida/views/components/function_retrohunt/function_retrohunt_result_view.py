@@ -2,7 +2,7 @@ import webbrowser
 from typing import Tuple
 
 import idaapi
-from PyQt5 import QtCore, QtGui, QtWidgets
+from threatray_ida.qt_compat import QAction, QShortcut, QtCore, QtGui, QtWidgets
 
 from threatray_ida.adapters.ida_api_impl import get_widget_name
 from threatray_ida.constants import OKAY_RESPONSE
@@ -209,7 +209,7 @@ class FunctionRetrohuntResultView(idaapi.PluginForm):
         self.table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.__on_custom_context_menu_requested)
         self.table.doubleClicked.connect(self.__handle_double_click)
-        QtWidgets.QShortcut(QtGui.QKeySequence.Copy, self.table, activated=self.__handle_copy_request)
+        QShortcut(QtGui.QKeySequence.Copy, self.table, activated=self.__handle_copy_request)
 
     def __on_custom_context_menu_requested(self):
         selection = self.table.selectedIndexes()
@@ -218,26 +218,26 @@ class FunctionRetrohuntResultView(idaapi.PluginForm):
 
         context_menu = QtWidgets.QMenu(self.table)
 
-        action_copy = QtWidgets.QAction(CONTEXT_MENU_COPY_TEXT, self.table)
+        action_copy = QAction(CONTEXT_MENU_COPY_TEXT, self.table)
         action_copy.setShortcut(QtGui.QKeySequence.Copy)
         action_copy.setEnabled(has_selection)
         context_menu.addAction(action_copy)
         action_copy.triggered.connect(self.__handle_copy_request)
 
         if len(selection) == 1 and selection[0].column() in self.__controller.get_url_columns():
-            action_copy_url = QtWidgets.QAction(CONTEXT_MENU_COPY_LINK_TEXT, self.table)
+            action_copy_url = QAction(CONTEXT_MENU_COPY_LINK_TEXT, self.table)
             action_copy_url.setEnabled(True)
             context_menu.addAction(action_copy_url)
             action_copy_url.triggered.connect(lambda: QtWidgets.QApplication.clipboard().setText(
                 self.__controller.get_url(selection[0].row(), selection[0].column())))
 
-        action_cluster = QtWidgets.QAction(get_context_menu_cluster_against_text(has_several_rows_selected),
+        action_cluster = QAction(get_context_menu_cluster_against_text(has_several_rows_selected),
                                            self.table)
         action_cluster.setEnabled(has_selection)
         context_menu.addAction(action_cluster)
         action_cluster.triggered.connect(self.__handle_cluster_analysis_request)
 
-        action_export = QtWidgets.QAction(EXPORT_TABLE_TEXT, self.table)
+        action_export = QAction(EXPORT_TABLE_TEXT, self.table)
         action_export.setEnabled(True)
         context_menu.addAction(action_export)
         action_export.triggered.connect(self.__export_to_csv)

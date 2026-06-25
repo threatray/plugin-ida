@@ -2,8 +2,7 @@ from collections import defaultdict
 from dataclasses import replace
 from typing import DefaultDict, Dict, List, Optional, Tuple, Union
 
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtCore import Qt  # pylint: disable=no-name-in-module
+from threatray_ida.qt_compat import Qt, QtCore, QtGui
 
 from threatray_ida.application.color_selector import convert_hex_rgb_to_int_bgr
 from threatray_ida.constants import BENIGN_FUNCTIONS_TEXT, UNKNOWN_FUNCTIONS_TEXT

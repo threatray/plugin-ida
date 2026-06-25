@@ -1,6 +1,4 @@
-from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtCore import Qt  # pylint: disable=no-name-in-module
-from PyQt5.QtWidgets import QDialog, QDialogButtonBox  # pylint: disable=no-name-in-module
+from threatray_ida.qt_compat import QDialog, QDialogButtonBox, Qt, QtCore, QtWidgets
 
 from threatray_ida.views.controllers.functions_code_detections.functions_code_detections_settings_controller import (
     COLOR_COLUMN,

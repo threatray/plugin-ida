@@ -1,7 +1,7 @@
 import csv
 from typing import List, Sequence
 
-from PyQt5 import QtCore, QtWidgets
+from threatray_ida.qt_compat import QtCore, QtWidgets
 
 from threatray_ida.domain.table_index import TableIndex
 from threatray_ida.logger import get_log

@@ -1,6 +1,6 @@
 from typing import Generic
 
-from PyQt5 import QtCore, QtGui
+from threatray_ida.qt_compat import QtCore, QtGui
 
 from threatray_ida.views.controllers.table_controller import TableController
 from threatray_ida.views.controllers.table_row_data import T

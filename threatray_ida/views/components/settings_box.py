@@ -1,6 +1,4 @@
-from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt  # pylint: disable=no-name-in-module
-from PyQt5.QtWidgets import QDialog, QDialogButtonBox  # pylint: disable=no-name-in-module
+from threatray_ida.qt_compat import QDialog, QDialogButtonBox, Qt, QtWidgets
 
 from threatray_ida.views.controllers.settings_controller import SettingsController
 

@@ -6,7 +6,7 @@ import ida_kernwin
 import idaapi
 import idautils
 import idc
-from PyQt5 import QtWidgets, sip
+from threatray_ida.qt_compat import QtWidgets, wrap_instance
 
 from threatray_ida.constants import PLUGIN_ID, PLUGIN_SETTINGS_FILE
 from threatray_ida.domain.address import Address
@@ -91,7 +91,7 @@ class IdaApiImpl(IdaApi):
 
 
 def get_selected_function_addresses_from_function_view(context: ida_kernwin.action_ctx_base_t) -> List[Address]:
-    widget = sip.wrapinstance(int(context.widget), QtWidgets.QWidget)  # type: ignore
+    widget = wrap_instance(int(context.widget), QtWidgets.QWidget)  # type: ignore
     view_splitter = widget.findChild(QtWidgets.QSplitter)  # type: ignore
     table = view_splitter.findChild(QtWidgets.QHeaderView)
     selected_rows = list(table.selectionModel().selectedRows())
