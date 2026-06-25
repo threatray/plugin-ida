@@ -1,5 +1,4 @@
 from threatray_ida.qt_compat import QDialog, QDialogButtonBox, Qt, QtWidgets
-
 from threatray_ida.views.controllers.settings_controller import SettingsController
 
 

@@ -34,14 +34,14 @@ def wrap_instance(ptr: int, cls):
 
 
 __all__ = [
-    "QtCore",
-    "QtGui",
-    "QtWidgets",
-    "Qt",
     "QAction",
     "QDialog",
     "QDialogButtonBox",
     "QShortcut",
+    "Qt",
+    "QtCore",
+    "QtGui",
+    "QtWidgets",
     "Signal",
     "wrap_instance",
 ]

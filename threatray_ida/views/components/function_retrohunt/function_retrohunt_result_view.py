@@ -2,13 +2,13 @@ import webbrowser
 from typing import Tuple
 
 import idaapi
-from threatray_ida.qt_compat import QAction, QShortcut, QtCore, QtGui, QtWidgets
 
 from threatray_ida.adapters.ida_api_impl import get_widget_name
 from threatray_ida.constants import OKAY_RESPONSE
 from threatray_ida.domain.match_confidence import MatchConfidence
 from threatray_ida.domain.match_similarity import MatchSimilarity
 from threatray_ida.logger import get_log
+from threatray_ida.qt_compat import QAction, QShortcut, QtCore, QtGui, QtWidgets
 from threatray_ida.views.components.result_view_constants import (
     CONTEXT_MENU_COPY_LINK_TEXT,
     CONTEXT_MENU_COPY_TEXT,

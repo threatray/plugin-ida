@@ -1,5 +1,4 @@
 from threatray_ida.qt_compat import QDialog, QDialogButtonBox, Qt, QtCore, QtWidgets
-
 from threatray_ida.views.controllers.functions_code_detections.functions_code_detections_settings_controller import (
     COLOR_COLUMN,
     FunctionsCodeDetectionsSettingsController,

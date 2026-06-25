@@ -2,7 +2,6 @@ import webbrowser
 from typing import Callable, List, Tuple
 
 import idaapi
-from threatray_ida.qt_compat import QAction, QShortcut, QtCore, QtGui, QtWidgets
 
 from threatray_ida.adapters.ida_api_impl import open_function_in_disasm_window
 from threatray_ida.constants import OKAY_RESPONSE, PLUGIN_NAME
@@ -10,6 +9,7 @@ from threatray_ida.domain.functions_code_detections.functions_code_detections_re
     FunctionsCodeDetectionsResult,
 )
 from threatray_ida.logger import get_log
+from threatray_ida.qt_compat import QAction, QShortcut, QtCore, QtGui, QtWidgets
 from threatray_ida.views.components.result_view_constants import (
     CONTEXT_MENU_COPY_LINK_TEXT,
     CONTEXT_MENU_COPY_TEXT,
