@@ -2,9 +2,6 @@ from collections import defaultdict
 from dataclasses import replace
 from typing import DefaultDict, Dict, List, Optional, Tuple, Union
 
-from PyQt5 import QtCore, QtGui
-from PyQt5.QtCore import Qt  # pylint: disable=no-name-in-module
-
 from threatray_ida.application.color_selector import convert_hex_rgb_to_int_bgr
 from threatray_ida.constants import BENIGN_FUNCTIONS_TEXT, UNKNOWN_FUNCTIONS_TEXT
 from threatray_ida.domain.functions_code_detections.code_detection_setting import CodeDetectionSetting
@@ -12,6 +9,7 @@ from threatray_ida.domain.functions_code_detections.family_category import Famil
 from threatray_ida.domain.functions_code_detections.functions_code_detections_settings import (
     FunctionsCodeDetectionsSettings,
 )
+from threatray_ida.qt_compat import Qt, QtCore, QtGui
 from threatray_ida.views.controllers.table_row_data import TableRowData
 
 TITLE: str = 'Attribute Functions Settings'
@@ -154,28 +152,28 @@ class FunctionsCodeDetectionsSettingsController(QtCore.QAbstractTableModel):
 
     # pylint: disable=invalid-name
     def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: int = ...):  # type: ignore
-        if role == QtCore.Qt.ToolTipRole and section == COLOR_COLUMN:  # type: ignore[attr-defined]
+        if role == QtCore.Qt.ToolTipRole and section == COLOR_COLUMN:
             return COLOR_COLUMN_TOOLTIP_TEXT
 
-        if role == QtCore.Qt.DisplayRole and orientation == QtCore.Qt.Horizontal:  # type: ignore
+        if role == QtCore.Qt.DisplayRole and orientation == QtCore.Qt.Horizontal:
             return TABLE_HEADER[section]
         return None
 
-    def data(self, index: QtCore.QModelIndex, role=QtCore.Qt.DisplayRole):  # type: ignore
+    def data(self, index: QtCore.QModelIndex, role=QtCore.Qt.DisplayRole):
         column = index.column()
         row = index.row()
 
-        if role == Qt.CheckStateRole and column == CHECKBOX_COLUMN:  # type: ignore[attr-defined]
-            return (Qt.Checked if self.__displayed_data[row].model.enabled  # type: ignore[attr-defined]
-                    else Qt.Unchecked)  # type: ignore[attr-defined]
-        elif role == QtCore.Qt.DisplayRole:  # type: ignore
+        if role == Qt.CheckStateRole and column == CHECKBOX_COLUMN:
+            return (Qt.Checked if self.__displayed_data[row].model.enabled
+                    else Qt.Unchecked)
+        elif role == QtCore.Qt.DisplayRole:
             return self.__displayed_data[row].display_values[column]
-        elif role == Qt.BackgroundRole and column == COLOR_COLUMN:  # type: ignore[attr-defined]
+        elif role == Qt.BackgroundRole and column == COLOR_COLUMN:
             return self.get_color_rgb(row)
-        elif role == QtCore.Qt.ToolTipRole and column == COLOR_COLUMN:  # type: ignore[attr-defined]
+        elif role == QtCore.Qt.ToolTipRole and column == COLOR_COLUMN:
             return COLOR_COLUMN_TOOLTIP_TEXT
-        elif role == QtCore.Qt.TextAlignmentRole:  # type: ignore
-            return QtCore.Qt.AlignLeft  # type: ignore
+        elif role == QtCore.Qt.TextAlignmentRole:
+            return QtCore.Qt.AlignLeft
         return None
 
     def setData(self, index, value, role=QtCore.Qt.EditRole):

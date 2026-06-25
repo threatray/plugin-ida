@@ -1,10 +1,9 @@
 import csv
 from typing import List, Sequence
 
-from PyQt5 import QtCore, QtWidgets
-
 from threatray_ida.domain.table_index import TableIndex
 from threatray_ida.logger import get_log
+from threatray_ida.qt_compat import QtCore, QtWidgets
 from threatray_ida.views.controllers.table_controller import TableController
 
 _log = get_log()
@@ -32,7 +31,7 @@ class DataExporter:
     def copy_selection_to_clipboard(selection: List[QtCore.QModelIndex], controller: TableController):
         indexes = DataExporter.model_index_to_table_index(selection)
         text = DataExporter.generate_text_for_copying(indexes, controller)
-        QtWidgets.QApplication.clipboard().setText(text)  # type: ignore
+        QtWidgets.QApplication.clipboard().setText(text)
         _log.debug('Copied selection to clipboard')
 
     @staticmethod

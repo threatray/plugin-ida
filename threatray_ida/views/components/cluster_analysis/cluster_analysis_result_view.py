@@ -1,13 +1,13 @@
 from typing import Tuple
 
 import idaapi
-from PyQt5 import QtCore, QtGui, QtWidgets
 
 from threatray_ida.adapters.ida_api_impl import get_widget_name, open_function_in_disasm_window
 from threatray_ida.constants import OKAY_RESPONSE
 from threatray_ida.domain.match_confidence import MatchConfidence
 from threatray_ida.domain.match_similarity import MatchSimilarity
 from threatray_ida.logger import get_log
+from threatray_ida.qt_compat import QAction, QShortcut, QtCore, QtGui, QtWidgets
 from threatray_ida.views.components.result_view_constants import (
     CONTEXT_MENU_COPY_TEXT,
     EXPORT_TABLE_CAPTION_TEXT,
@@ -217,7 +217,7 @@ class ClusterAnalysisResultView(idaapi.PluginForm):
         self.table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.__on_custom_context_menu_requested)
         self.table.doubleClicked.connect(self.__handle_double_click)
-        QtWidgets.QShortcut(QtGui.QKeySequence.Copy, self.table, activated=self.__handle_copy_request)
+        QShortcut(QtGui.QKeySequence.Copy, self.table, activated=self.__handle_copy_request)
 
     def __on_custom_context_menu_requested(self):
         selection = self.table.selectedIndexes()
@@ -225,24 +225,24 @@ class ClusterAnalysisResultView(idaapi.PluginForm):
         has_several_rows_selected = len({cell.row() for cell in selection}) > 1
 
         context_menu = QtWidgets.QMenu(self.table)
-        action_copy = QtWidgets.QAction(CONTEXT_MENU_COPY_TEXT, self.table)
+        action_copy = QAction(CONTEXT_MENU_COPY_TEXT, self.table)
         action_copy.setShortcut(QtGui.QKeySequence.Copy)
         action_copy.setEnabled(has_selection)
         context_menu.addAction(action_copy)
         action_copy.triggered.connect(self.__handle_copy_request)
 
-        action_retrohunt = QtWidgets.QAction(get_context_menu_function_retrohunt_text(has_several_rows_selected),
+        action_retrohunt = QAction(get_context_menu_function_retrohunt_text(has_several_rows_selected),
                                              self.table)
         action_retrohunt.setEnabled(has_selection)
         context_menu.addAction(action_retrohunt)
         action_retrohunt.triggered.connect(self.__handle_function_retrohunt_request)
 
-        action_jump = QtWidgets.QAction(JUMP_TO_FUNCTION_TEXT, self.table)
+        action_jump = QAction(JUMP_TO_FUNCTION_TEXT, self.table)
         action_jump.setEnabled(has_selection and not has_several_rows_selected)
         context_menu.addAction(action_jump)
         action_jump.triggered.connect(lambda: self.__jump_to_function(selection[0].row()))
 
-        action_export = QtWidgets.QAction(EXPORT_TABLE_TEXT, self.table)
+        action_export = QAction(EXPORT_TABLE_TEXT, self.table)
         action_export.setEnabled(True)
         context_menu.addAction(action_export)
         action_export.triggered.connect(self.__export_to_csv)
