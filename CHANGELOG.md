@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.0.2] - 2026-06-25
+
+- Fixed result views crashing on IDA 9.2+ with `AttributeError: module 'PyQt5.QtWidgets' has no attribute 'QShortcut'`. The plugin now imports PySide6 directly on IDA 9.2+ instead of going through the deprecated PyQt5 shim.
+
 ## [3.0.1] - 2026-05-29
 
 - Added PyPI cooldown for supply-chain protection (`exclude-newer = "7 days"`).

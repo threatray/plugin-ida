@@ -3,7 +3,7 @@
   "plugin": {
     "name": "threatray",
     "entryPoint": "threatray_plugin.py",
-    "version": "3.0.0",
+    "version": "3.0.2",
     "description": "Attribute functions to malware families and libraries, find function clusters across samples, and retrohunt similar functions on the Threatray platform.",
     "license": "MIT",
     "idaVersions": ["8.4", "8.4sp1", "8.4sp2", "8.5", "9.0", "9.0sp1", "9.1", "9.2", "9.3", "9.4", "10.0"],
