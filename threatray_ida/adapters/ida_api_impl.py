@@ -112,8 +112,11 @@ def get_widget_name(label: str) -> str:
     return widget_name
 
 
-def open_function_in_disasm_window(func_addr: int, widget_name: str):
+def open_function_in_disasm_window(func_addr: int, widget_name: str) -> None:
     func = idaapi.get_func(func_addr)
+    if func is None:
+        ida_kernwin.warning(f'No function exists at address {func_addr:#x}.')
+        return
     range_vec = idaapi.rangevec_t()
     range_set = idaapi.rangeset_t()
     ranges = idaapi.get_func_ranges(range_set, func)
