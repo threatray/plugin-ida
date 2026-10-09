@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # check=error=true
-ARG VERSION=3.13
+ARG VERSION=3.14
 FROM python:$VERSION-bookworm AS builder
 LABEL maintainer="Threatray <operations@threatray.com>"
 

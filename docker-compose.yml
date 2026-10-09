@@ -6,7 +6,7 @@ services:
       context: .
       target: base
       args:
-        VERSION: 3.13
+        VERSION: 3.14
 
     environment:
       LOG_LEVEL: DEBUG
