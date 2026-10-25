@@ -79,5 +79,3 @@ jobs:
       - run: uv pip install -r pyproject.toml --extra dev --system
       - run: python tests/unit/run_tests.py
       - run: python -m tests.integration.run_tests
-        env:
-          QT_QPA_PLATFORM: offscreen
