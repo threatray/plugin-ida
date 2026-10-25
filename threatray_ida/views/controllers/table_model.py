@@ -1,11 +1,8 @@
-from typing import Generic
-
 from threatray_ida.qt_compat import QtCore, QtGui
 from threatray_ida.views.controllers.table_controller import TableController
-from threatray_ida.views.controllers.table_row_data import T
 
 
-class TableModel(QtCore.QAbstractTableModel, Generic[T]):
+class TableModel(QtCore.QAbstractTableModel):
     def __init__(self, controller: TableController):
         QtCore.QAbstractTableModel.__init__(self)
         self.__controller = controller

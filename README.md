@@ -28,6 +28,9 @@ The plugin supports IDA 8.4+ on Windows, Linux, and macOS, and requires Python 3
 
 ### Interpreter Details
 
+The plugin is tested with Python 3.12, 3.13, and 3.14. Your IDA version must also support the Python
+version you select and provide compatible Qt bindings.
+
 Make sure you install the requirements with the same Python interpreter that your IDA Pro uses.
 You can check this by running `sys.path` in IDA’s Python console.
 
