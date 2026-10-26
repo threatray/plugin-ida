@@ -1,4 +1,5 @@
 import unittest
+from typing import Generic
 from unittest.mock import MagicMock
 
 from hamcrest import assert_that, is_
@@ -10,6 +11,9 @@ from threatray_ida.views.controllers.table_row_data import TableRowData
 
 
 class TestTableModel(unittest.TestCase):
+    def test_avoids_generic_mixin(self) -> None:
+        self.assertNotIn(Generic, TableModel.__mro__)
+
     def test_data(self):
         header = 'header1', 'header2', 'header3'
         data = [TableRowData(model=1, display_values=('dummy', 1, 'eiszwöidrü')),

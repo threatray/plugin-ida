@@ -3,7 +3,9 @@
 ## [3.0.3] - 2026-10-25
 
 - Fixed a startup crash with Python 3.12 and the Qt bindings bundled with IDA 8.4.
-- Added Qt table view integration tests and Python 3.12 to the compatibility test matrix alongside Python 3.13 and 3.14.
+- Fixed navigating to an address that has no function in the IDA database; the plugin now shows a warning instead of failing.
+- Added Qt table view integration tests and Python 3.12 to the compatibility test matrix alongside Python 3.10,
+  3.13, and 3.14.
 
 ## [3.0.2] - 2026-06-25
 
