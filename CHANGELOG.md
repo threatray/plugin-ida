@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.3] - 2026-10-29
+
+- Fixed a startup crash with Python 3.12 and the Qt bindings bundled with IDA 8.4.
+- Fixed navigating to an address that has no function in the IDA database; the plugin now shows a warning instead of failing.
+- Added Qt table view integration tests and Python 3.12 to the compatibility test matrix alongside Python 3.10,
+  3.13, and 3.14.
+
 ## [3.0.2] - 2026-06-25
 
 - Fixed result views crashing on IDA 9.2+ with `AttributeError: module 'PyQt5.QtWidgets' has no attribute 'QShortcut'`. The plugin now imports PySide6 directly on IDA 9.2+ instead of going through the deprecated PyQt5 shim.

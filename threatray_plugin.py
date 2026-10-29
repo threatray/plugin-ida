@@ -1,6 +1,6 @@
 __author__ = 'threatray'
 __email__ = 'support@threatray.com'
-__version__ = '3.0.0'
+__version__ = '3.0.3'
 __ida_version__ = 'IDA PRO 8.4'
 
 import idaapi
