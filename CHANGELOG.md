@@ -1,6 +1,6 @@
 # Changelog
 
-## [3.0.3] - 2026-10-25
+## [3.0.3] - 2026-10-29
 
 - Fixed a startup crash with Python 3.12 and the Qt bindings bundled with IDA 8.4.
 - Fixed navigating to an address that has no function in the IDA database; the plugin now shows a warning instead of failing.
