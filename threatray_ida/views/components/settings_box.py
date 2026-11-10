@@ -17,10 +17,10 @@ class SettingsBox(QDialog):
         info_label = QtWidgets.QLabel(self.__controller.info_label)
         self.vertical_layout.addWidget(info_label)
 
-        # Realm and api key input
+        # Instance name and API key input
         self.form_layout = QtWidgets.QFormLayout()
 
-        realm_label = QtWidgets.QLabel('Realm')
+        realm_label = QtWidgets.QLabel('Instance name')
         self.form_layout.setWidget(0, QtWidgets.QFormLayout.LabelRole, realm_label)
         self.realm_input = QtWidgets.QLineEdit(self.__controller.realm)
         self.realm_input.setMaximumWidth(250)  # Limit width

@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.0.4] - 2026-11-10
+
+- The settings dialog and README ask for the **instance name** instead of the "realm", and explain where to find it.
+  Existing settings keep working unchanged.
+
 ## [3.0.3] - 2026-10-29
 
 - Fixed a startup crash with Python 3.12 and the Qt bindings bundled with IDA 8.4.

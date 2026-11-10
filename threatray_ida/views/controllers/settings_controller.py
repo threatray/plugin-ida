@@ -39,7 +39,9 @@ class SettingsController:
 
     @property
     def info_label(self) -> str:
-        return ('Set your realm and API key.\n'
+        return ('Set your instance name and API key.\n'
+                'The instance name is the first part of the address you log in at: '
+                '<instance-name>.analysis.threatray.com.\n'
                 'You can find the API key in the UI under the Settings menu -> API Key.\n'
                 'This menu can be opened again under Edit > Plugins > Threatray.\n')
 
