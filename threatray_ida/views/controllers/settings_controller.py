@@ -40,7 +40,7 @@ class SettingsController:
     @property
     def info_label(self) -> str:
         return ('Set your instance name and API key.\n'
-                'The instance name is the first part of the Threatray web app's address after you sign in: '
+                "The instance name is the first part of the Threatray web app's address after you sign in: "
                 'https://<instance-name>.analysis.threatray.com\n'
                 'You can find the API key in the UI under the Settings menu -> API Key.\n'
                 'This menu can be opened again under Edit > Plugins > Threatray.\n')
