@@ -22,7 +22,8 @@ The plugin supports IDA 8.4+ on Windows, Linux, and macOS, and requires Python 3
 
 1. Install the Python requirements: `python3 -m pip install -r requirements.txt` (see details below regarding Python interpreter).
 2. Copy `threatray_plugin.py` and the `threatray_ida` folder into the `plugins` directory of your IDA Pro installation.
-3. When starting the plugin for the first time, you will be prompted for the **realm** and **API key**.
+3. When starting the plugin for the first time, you will be prompted for the **instance name** and **API key**.
+   The instance name is the first part of the Threatray web app's address after you sign in: `https://<instance-name>.analysis.threatray.com`.
    These settings can later be changed via `Edit` > `Plugins` > `Threatray`.
    See https://docs.threatray.com/reference/authentication for more information on authentication and how to obtain the API key.
 
