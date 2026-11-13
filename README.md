@@ -5,125 +5,137 @@
 ![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![IDA 8.4+](https://img.shields.io/badge/IDA-8.4+-green.svg)
 
-This plugin integrates Threatray functionalities directly into your IDA Pro environment.
+Use Threatray's code intelligence from inside IDA Pro.
 
-## Features
+- **Attribute Functions**: see which malware families or libraries the functions of a binary belong to.
+  Each function gets Threatray's verdict in its name and comment, and a color.
+- **Find Function Clusters**: find functions that several binaries share, and how often they occur in the set.
+- **Retrohunt Functions**: find malware and goodware samples that contain functions similar to the ones you select.
 
-- **Attribute Functions**: Identify which malware families or libraries functions belong to.
-  Functions are annotated with Threatray’s verdict in their name and comment, and highlighted with color.
-- **Find Function Clusters**: Discover shared functions across binaries and see how often they occur within the sample set.
-- **Retrohunt Functions**: Find malware and goodware samples containing functions similar to your selected function(s).
+## Requirements
 
-Make sure the file you’ve opened in IDA has already been analyzed by Threatray.
+- IDA Pro 8.4 or later on Windows, Linux or macOS
+- Python 3.10 or later, as used by your IDA
+- A Threatray account: you need your **instance name** and an **API key**
+- The file you open in IDA must already have been analyzed by Threatray
 
-The plugin supports IDA 8.4+ on Windows, Linux, and macOS, and requires Python 3.10+.
-It is tested with IDA 8.4 to 9.4. Newer IDA versions are not tested yet: the plugin may work on them,
-and if it doesn't, please [open an issue](https://github.com/threatray/plugin-ida/issues).
+IDA 9.0 to 9.5 are checked automatically, in real IDA installations, on every change.
+If the plugin misbehaves on your version, please [open an issue](https://github.com/threatray/plugin-ida/issues).
 
 ## Installation
 
-On IDA 9.0 and later, you can install the plugin with the Hex-Rays plugin manager:
-`hcli plugin install threatray`. Then continue with step 3 below.
-If you installed the plugin by hand before, first remove the `threatray_plugin.py` file and the
-`threatray_ida` folder that you copied into IDA's `plugins` directory.
+### IDA 9.0 and later
 
-On IDA 8.4 and 8.5, or to install the plugin by hand:
+Install the plugin and its Python dependencies with the Hex-Rays plugin manager:
 
-1. Install the Python requirements: `python3 -m pip install -r requirements.txt` (see details below regarding Python interpreter).
-2. Copy `threatray_plugin.py` and the `threatray_ida` folder into the `plugins` directory of your IDA Pro installation.
-3. When starting the plugin for the first time, you will be prompted for the **instance name** and **API key**.
-   The instance name is the first part of the Threatray web app's address after you sign in: `https://<instance-name>.analysis.threatray.com`. You can also paste the full address.
-   These settings can later be changed via `Edit` > `Plugins` > `Threatray`.
-   See https://docs.threatray.com/reference/authentication for more information on authentication and how to obtain the API key.
-
-### Interpreter Details
-
-The plugin is tested with Python 3.10, 3.12, 3.13, and 3.14. Your IDA version must also support the Python
-version you select and provide compatible Qt bindings.
-
-Make sure you install the requirements with the same Python interpreter that your IDA Pro uses.
-You can check this by running `sys.path` in IDA’s Python console.
-
-Examples:
 ```
->>> C:\Users\developer\AppData\Local\Programs\Python\Python312\python.exe -m pip install -r requirements.txt
-
-$ /usr/bin/python3.11 -m pip install -r requirements.txt
-
-$ /Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.12/bin/python3.12 -m pip install -r requirements.txt
+hcli plugin install threatray
 ```
 
-## How to use it
+If you installed the plugin by hand before, first delete `threatray_plugin.py` and the `threatray_ida` folder
+from IDA's `plugins` directory.
 
-The plugin’s features are available via the Threatray entry in IDA’s right-click context menu.
+### IDA 8.4 and 8.5, or installing by hand
+
+1. Download this repository.
+2. Install the dependencies **with the Python interpreter your IDA uses**:
+
+   ```
+   python3 -m pip install -r requirements.txt
+   ```
+
+   To find that interpreter, run `import sys; print(sys.prefix)` in IDA's Python console and use the `python`
+   in that location, for example
+   `C:\Users\you\AppData\Local\Programs\Python\Python312\python.exe -m pip install -r requirements.txt`.
+3. Copy `threatray_plugin.py` and the `threatray_ida` folder into IDA's user `plugins` directory:
+   - Windows: `%APPDATA%\Hex-Rays\IDA Pro\plugins`
+   - Linux and macOS: `~/.idapro/plugins`
+4. Restart IDA.
+
+The plugin is tested with Python 3.10, 3.12, 3.13 and 3.14. Your IDA must support the Python version you use.
+
+## First start
+
+The first time IDA loads the plugin, it asks for two things:
+
+- **Instance name**: the first part of the Threatray web app's address after you sign in,
+  `https://<instance-name>.analysis.threatray.com`. You can also paste the whole address.
+- **API key**: the [authentication guide](https://docs.threatray.com/reference/authentication) explains
+  how to get one.
+
+You can change both later under `Edit` > `Plugins` > `Threatray`.
+
+The API key is stored in your operating system's keychain (macOS Keychain, Windows Credential Manager, or the
+Secret Service on Linux). Where no keychain is available, it is kept in `threatray/config.json` in the IDA user
+directory, readable only by you.
+
+## Usage
+
+Right-click in IDA and open the **Threatray** menu.
 
 ![Context menu](./images/context_menu.png)
 
-### General tips
+A request can take a while. IDA shows a wait box in the meantime, and you can cancel from it.
 
-- Result views can be exported:
-  - Export everything to CSV via the context menu.
-  - Copy selected entries with Ctrl+C or via the context menu.
-- Some result entries contain links. These can be copied via the context menu.
+Every feature opens a result table. In all of them:
+
+- Type in the filter box, or press Ctrl+F (Cmd+F on macOS), to narrow the rows down.
+- Double-click an entry, or press Enter, to open it.
+- Copy the selected cells with Ctrl+C (Cmd+C), or export the whole table to CSV from the context menu.
+- Entries that are links can be copied from the context menu.
 
 ### Attribute Functions
 
-The `Attribute Functions` feature identifies which malware families or libraries functions belong to.
-It annotates each function’s name, adds a comment, and highlights it with color based on Threatray’s verdict.
+Annotates every function with Threatray's verdict: in its name, in a comment, and with a color.
+In the settings you choose which detections to apply and their colors.
 
 ![Attribute Functions Settings](./images/attribute_functions_settings.png)
 
-*Attribute Functions Settings*
-
 ![Attribute Functions Results](./images/attribute_functions_results.jpg)
 
-*Attribute Functions Results*
-
-- Double-clicking the `Address` column jumps to the function view (also available via context menu).
-- Double-clicking the `Reference Malware File` column opens the analysis of the first hash in Threatray.
-- You can launch a `Retrohunt Functions` query from the context menu with one or more selected addresses.
+- Open an `Address` to jump to the function.
+- Open a `Reference Malware File` to see the analysis of its first hash in Threatray.
+- Select one or more addresses and choose `Retrohunt Functions` from the context menu to search for them.
 
 ### Find Function Clusters
 
-The `Find Function Clusters` features finds shared functions across binaries and see how often they occur in the
-sample set.
+Compares the file open in IDA with up to 10 other files, which must also have been analyzed by Threatray,
+and shows the functions they share and how often each occurs.
 
-It always includes the file currently opened in IDA Pro, plus up to 10 additional files (which must also have been analyzed by Threatray).
-
-By default, benign code is excluded from clustering, but this can be enabled in the settings.
-
-If a function from the current file has multiple matches in another file, a maximum of three matches per file are displayed.
+Benign code is left out by default; you can include it in the settings.
+For a function with several matches in one file, up to three matches per file are shown.
 
 ![Find Function Clusters Settings](./images/find_function_clusters_settings.png)
 
-*Find Function Clusters Settings*
-
 ![Find Function Clusters Results](./images/find_function_clusters_results.jpg)
 
-*Find Function Clusters Results*
-
-- Double-click a `Query Function Address` to jump to the function view (also available via context menu).
-- You can run `Retrohunt Functions` from the context menu with one or more selected addresses.
+- Open a `Query Function Address` to jump to the function.
+- Select one or more addresses and choose `Retrohunt Functions` from the context menu to search for them.
 
 ### Retrohunt Functions
 
-The `Retrohunt Functions` feature finds malware and goodware samples with functions similar to your selected function(s).
+Finds malware and goodware samples with functions similar to the ones you select.
 
-Select one or more functions from the functions list view, or right-click a function in the disassembly view to start a retrohunt.
-
-When multiple functions are selected, you can set a threshold value, which specifies how many of the selected functions must match in a file for it to be considered a result.
+Select one or more functions in the Functions window, or right-click inside a function in the disassembly or
+pseudocode view. With several functions selected, you set a threshold: how many of them must match in a file
+for it to count as a result.
 
 ![Retrohunt Functions Settings](./images/retrohunt_functions_settings.png)
 
-*Retrohunt Functions Settings*
-
 ![Retrohunt Functions Results](./images/retrohunt_functions_results.jpg)
 
-*Retrohunt Functions Results*
+- With several query functions, `Query To Matching Function Address` lists each match as
+  `input function address`->`matching function address`. With one query function, only the matching address
+  is shown.
+- Open an `Analysis Id` to see the analysis in Threatray.
+- Open a `File Hash` to search for the file in Threatray.
+- Select one or more file hashes and choose `Find Function Clusters` from the context menu to compare them.
 
-- With multiple query functions, the column `Query To Matching Function Address` lists matches as
-  `input function address`->`matching function address in the given file`.
-- With a single query function, only the matching address is shown.
-- Double-click an `Analysis Id` to open the analysis in Threatray.
-- Double-click a `File Hash` to search for this file in Threatray.
-- You can run `Find Function Clusters` from the context menu on one or more selected file hashes.
+## Troubleshooting
+
+- **The Threatray menu does not appear.** The dependencies are probably installed for a different Python than
+  the one IDA uses. Check IDA's Output window for an import error, and repeat step 2 of the manual installation
+  with the right interpreter.
+- **"Failed to query the threatray API".** Check the instance name and API key under `Edit` > `Plugins` >
+  `Threatray`, and that your machine can reach `https://api-<instance-name>.analysis.threatray.com`.
+- **"No entity found with the hash".** Threatray has not analyzed the file open in IDA. Submit it first.
