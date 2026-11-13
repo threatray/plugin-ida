@@ -8,3 +8,6 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    # the same waiting period as exclude-newer in pyproject.toml
+    cooldown:
+      default-days: 7
