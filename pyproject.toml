@@ -5,34 +5,56 @@ description = "Threatray IDA Plugin"
 authors = [{name = "Threatray", email = "operations@threatray.com"}]
 requires-python = ">=3.10"
 dependencies = [
-    "requests~=2.33",
+    # ida-plugin.json repeats these for the Hex-Rays plugin manager; a unit test keeps the two in sync
+    "requests>=2.33",
     "keyring>=25",
-    "pyqt5~=5.15",
-    "pyqt5-sip~=12.16",
 ]
 
-# Note: there is still a requirements.txt file which needs to be in sync with these dependencies.
-# The requirements.txt file is published for customers
-
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "coverage~=7.4",
-    "ruff~=0.8",
     "PyHamcrest~=2.1",
-    "vulture~=2.11",
-    "mypy>=1.10,<3.0",
-    "types-requests~=2.31",
-    "types-setuptools>=69.5,<85.0",
+    # the views are built outside IDA with the binding IDA 9.0 and 9.1 ship
+    "pyqt5~=5.15",
+    "pyqt5-sip~=12.16",
     "requests-mock~=1.12",
+    "ruff~=0.8",
+    "ty>=0.0.90",
+    "types-requests~=2.31",
+    "vulture~=2.11",
 ]
 
 [tool.uv]
-index-url = "https://pypi.org/simple"
+# the plugin is copied into IDA's plugins directory, it is never built or installed as a package
+package = false
 exclude-newer = "7 days"
+
+[tool.ty.analysis]
+# IDA's own modules only exist inside IDA
+allowed-unresolved-imports = ["ida*", "idc", "threatray_ida.internal.**"]
+# the same code runs on PyQt5 and PySide6, so the stubs of one binding would reject what the other needs
+replace-imports-with-any = ["PyQt5.**", "PySide6.**", "shiboken6.**"]
+
+[tool.ty.src]
+exclude = ["vulture_whitelist.py"]
+
+# the tests pass wrong types on purpose, edit recorded JSON in place and reach into private attributes
+[[tool.ty.overrides]]
+include = ["tests/**"]
+
+[tool.ty.overrides.rules]
+invalid-argument-type = "ignore"
+invalid-assignment = "ignore"
+no-matching-overload = "ignore"
+not-subscriptable = "ignore"
+unresolved-attribute = "ignore"
+
+[tool.vulture]
+paths = [".", "vulture_whitelist.py"]
+exclude = [".venv/"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
 
 [tool.ruff.lint]
 select = [

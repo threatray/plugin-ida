@@ -38,7 +38,7 @@ class TestRequestCancellation(unittest.TestCase):
                 self.end_headers()
                 self.wfile.write(b'{}')
 
-            def log_message(self, *_args) -> None:
+            def log_message(self, *_args) -> None:  # ty: ignore[invalid-method-override]
                 pass
 
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)

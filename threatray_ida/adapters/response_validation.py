@@ -45,7 +45,7 @@ def _build_class_checker(expected: type) -> Callable[[object], bool]:
         return lambda value: isinstance(value, expected) and all(
             check(getattr(value, name)) for name, check in field_checks)
     if issubclass(expected, (list, tuple)):
-        return lambda value: isinstance(value, expected) and all(_checker(type(item))(item) for item in value)
+        return lambda value: isinstance(value, expected) and all(_checker(type(item))(item) for item in value)  # ty: ignore[not-iterable]
     if expected is float:
         return lambda value: type(value) in (float, int)  # JSON has one number type
     if expected is int:
@@ -85,7 +85,7 @@ def _validate_instance(value: object, expected: type, where: str) -> None:
 @lru_cache(maxsize=None)
 def _field_types(dataclass_type: type) -> Tuple[Tuple[str, object], ...]:
     hints = typing.get_type_hints(dataclass_type)
-    return tuple((field.name, hints[field.name]) for field in fields(dataclass_type))
+    return tuple((field.name, hints[field.name]) for field in fields(dataclass_type))  # ty: ignore[invalid-argument-type]
 
 
 def _validate_items(items: Iterable[object], expected: Optional[object], where: str) -> None:

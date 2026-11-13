@@ -6,65 +6,43 @@ on:
   pull_request:
     branches: [main]
 
-permissions: {}
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.13.8"
 
 jobs:
   lint:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    timeout-minutes: 10
     steps:
       - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.14"
-      - run: pip install uv
-      - run: uv pip install -r pyproject.toml --extra dev --system
-      - run: ruff check .
-      - run: python -m vulture . vulture_whitelist.py
-
-  plugin-lint:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          egress-policy: audit
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Download hcli
-        run: |
-          gh release download --repo HexRaysSA/ida-hcli --pattern "hcli-linux-x86_64-*" --dir /tmp
-          chmod +x /tmp/hcli-linux-x86_64-*
-        env:
-          GH_TOKEN: ${{ github.token }}
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check --output-format=github
+      - run: uv run ty check --output-format=github
+      - run: uv run vulture
       - name: Lint ida-plugin.json
-        run: /tmp/hcli-linux-x86_64-* plugin lint .
-
-  type-check:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
-        with:
-          egress-policy: audit
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: "3.14"
-      - run: pip install uv
-      - run: uv pip install -r pyproject.toml --extra dev --system
-      - run: python -m mypy .
+        run: uvx --from ida-hcli==0.28.0 hcli plugin lint .
 
   test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    timeout-minutes: 10
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.12", "3.13", "3.14"]
     steps:
@@ -72,10 +50,13 @@ jobs:
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
           python-version: ${{ matrix.python-version }}
-      - run: pip install uv
-      - run: uv pip install -r pyproject.toml --extra dev --system
-      - run: python tests/unit/run_tests.py
-      - run: python -m tests.integration.run_tests
+      - run: uv sync --locked
+      - run: uv run python tests/unit/run_tests.py
+      - run: uv run python -m tests.integration.run_tests

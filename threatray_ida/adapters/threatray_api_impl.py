@@ -59,17 +59,17 @@ class _Tracked:
         super().__init__(*args, **kwargs)
         self._cancellations_at_request = _cancellations[0]
         with _connections_lock:
-            _connections.add(self)  # type: ignore[arg-type]
+            _connections.add(self)  # ty: ignore[invalid-argument-type]
 
     def request(self, *args, **kwargs):
         self._cancellations_at_request = _cancellations[0]
-        return super().request(*args, **kwargs)
+        return super().request(*args, **kwargs)  # ty: ignore[unresolved-attribute]
 
     def connect(self) -> None:
-        super().connect()  # type: ignore[misc]
+        super().connect()  # ty: ignore[unresolved-attribute]
         # a cancel cannot interrupt connecting; without this check the request would be sent afterwards
         if _cancellations[0] != self._cancellations_at_request:
-            self.close()  # type: ignore[attr-defined]
+            self.close()  # ty: ignore[unresolved-attribute]
             raise OSError('The request was canceled.')
 
 
@@ -82,11 +82,11 @@ class _TrackedHTTPSConnection(_Tracked, HTTPSConnection):
 
 
 class _TrackedHTTPConnectionPool(HTTPConnectionPool):
-    ConnectionCls = _TrackedHTTPConnection
+    ConnectionCls = _TrackedHTTPConnection  # ty: ignore[invalid-assignment]
 
 
 class _TrackedHTTPSConnectionPool(HTTPSConnectionPool):
-    ConnectionCls = _TrackedHTTPSConnection
+    ConnectionCls = _TrackedHTTPSConnection  # ty: ignore[invalid-assignment]
 
 
 _POOL_CLASSES = {'http': _TrackedHTTPConnectionPool, 'https': _TrackedHTTPSConnectionPool}

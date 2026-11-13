@@ -39,7 +39,7 @@ FAMILY_CATEGORY_PRIORITY: Dict[Optional[FamilyCategory], int] = {
 CATEGORY_FILTER_PRIORITY: Dict[Optional[Union[FamilyCategory, str]], int] = {ALL_CODE_DETECTIONS_CATEGORY_TEXT: 0,
                                                                              UNKNOWN_FUNCTIONS_TEXT: 100,
                                                                              BENIGN_FUNCTIONS_TEXT: 99}
-CATEGORY_FILTER_PRIORITY.update(FAMILY_CATEGORY_PRIORITY)  # type: ignore[arg-type]
+CATEGORY_FILTER_PRIORITY.update(FAMILY_CATEGORY_PRIORITY)  # ty: ignore[no-matching-overload]
 
 
 def sort_code_detections(code_detections: Tuple[CodeDetectionSetting, ...]) -> List[CodeDetectionSetting]:

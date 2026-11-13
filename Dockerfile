@@ -11,14 +11,14 @@ RUN apt-get update && \
 
 ENV VIRTUAL_ENV=/app/venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV UV_PROJECT_ENVIRONMENT=$VIRTUAL_ENV
 ENV UV_CACHE_DIR=/tmp/.uv_cache
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 
 RUN mkdir /app
 WORKDIR /app
-RUN python -m venv venv
-RUN /app/venv/bin/pip3 install uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /uvx /bin/
 
 FROM builder AS lock
 
@@ -26,7 +26,7 @@ COPY --from=builder /app /app
 ENV HOME=/app/threatray-ida
 WORKDIR $HOME
 COPY pyproject.toml $HOME
-RUN /app/venv/bin/uv pip compile pyproject.toml --extra dev --universal --upgrade -o uv.lock
+RUN uv lock --upgrade
 
 FROM builder AS base
 
@@ -34,7 +34,7 @@ ENV HOME=/app/threatray-ida
 WORKDIR $HOME
 COPY pyproject.toml uv.lock $HOME/
 RUN --mount=type=cache,target=/tmp/.uv_cache \
-    /app/venv/bin/uv pip install -r pyproject.toml --extra dev
+    uv sync --locked
 
 FROM python:$VERSION-slim-bookworm AS slim
 

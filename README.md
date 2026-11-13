@@ -37,7 +37,7 @@ from IDA's `plugins` directory.
 
 ### IDA 8.4 and 8.5, or installing by hand
 
-1. Download this repository.
+1. Download the zip of the [latest release](https://github.com/threatray/plugin-ida/releases/latest) and unpack it.
 2. Install the dependencies **with the Python interpreter your IDA uses**:
 
    ```
@@ -139,3 +139,16 @@ for it to count as a result.
 - **"Failed to query the threatray API".** Check the instance name and API key under `Edit` > `Plugins` >
   `Threatray`, and that your machine can reach `https://api-<instance-name>.analysis.threatray.com`.
 - **"No entity found with the hash".** Threatray has not analyzed the file open in IDA. Submit it first.
+
+## Development
+
+The project is managed with [uv](https://docs.astral.sh/uv/); `pyproject.toml` holds the dependencies and the
+configuration of every tool.
+
+```
+uv sync                                  # create .venv from uv.lock
+uv run ruff check                        # lint
+uv run ty check                          # type check
+uv run vulture                           # dead code
+uv run python tests/unit/run_tests.py    # unit tests
+```

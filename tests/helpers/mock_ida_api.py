@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterator, List, Optional, TypeVar
+from typing import Callable, Dict, Generator, List, Optional, TypeVar
 
 from threatray_ida.constants import WHITE_COLOR
 from threatray_ida.domain.address import Address
@@ -56,7 +56,7 @@ class MockIdaApi(IdaApi):
         return task()
 
     @contextmanager
-    def progress(self, text: str) -> Iterator[Callable[[], None]]:
+    def progress(self, text: str) -> Generator[Callable[[], None], None, None]:
         self.progress_texts.append(text)
         yield lambda: None
 

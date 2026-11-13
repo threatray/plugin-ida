@@ -9,6 +9,9 @@ permissions: {}
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TAG: ${{ github.ref_name }}
     permissions:
       contents: write
       id-token: write
@@ -18,21 +21,17 @@ jobs:
         with:
           egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Build release zip
         run: |
           mkdir release
-          cp -r threatray_ida release/
-          cp threatray_plugin.py release/
-          cp requirements.txt release/
-          cp CHANGELOG.md release/
-          cp README.md release/
-          cp LICENSE release/
-          cp -r images release/
-          cp ida-plugin.json release/ 2>/dev/null || true
-
+          cp -r threatray_ida images threatray_plugin.py ida-plugin.json CHANGELOG.md README.md LICENSE release/
+          # for installing by hand; the plugin manager reads the dependencies from ida-plugin.json
+          python3 -c "import tomllib; print(*tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies'], sep='\n')" > release/requirements.txt
           cd release
-          zip -r ../threatray-ida-${{ github.ref_name }}.zip .
+          zip -r "../threatray-ida-${TAG}.zip" .
 
       - name: Attest build provenance
         if: github.repository_visibility == 'public'
@@ -43,8 +42,4 @@ jobs:
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create ${{ github.ref_name }} \
-            threatray-ida-${{ github.ref_name }}.zip \
-            --title "${{ github.ref_name }}" \
-            --generate-notes
+        run: gh release create "$TAG" "threatray-ida-${TAG}.zip" --title "$TAG" --generate-notes

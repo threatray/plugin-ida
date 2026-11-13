@@ -1,12 +1,8 @@
 name: IDA integration
 
-# Runs the plugin inside real IDA installations. It needs two repository secrets:
-#   HCLI_API_KEY    an API key of the Hex-Rays portal (`hcli auth key create`)
-#   IDA_LICENSE_ID  the id of the IDA licence to install (`hcli license list`)
-# Without them (and for pull requests from forks, which never receive secrets) the jobs are skipped.
-#
-# The live API job additionally reads from a real Threatray instance. It needs THREATRAY_INSTANCE,
-# THREATRAY_API_KEY and THREATRAY_SAMPLE_SHA256 (a file that instance has analyzed) and is skipped without them.
+# Repository secrets; jobs whose secrets are missing are skipped, as on pull requests from forks.
+#   HCLI_API_KEY, IDA_LICENSE_ID: `hcli auth key create`, `hcli license list`
+#   THREATRAY_INSTANCE, THREATRAY_API_KEY, THREATRAY_SAMPLE_SHA256: for the live API job; a file the instance has analyzed
 
 on:
   push:
@@ -26,6 +22,7 @@ defaults:
 
 env:
   HCLI_VERSION: "0.28.0"
+  UV_VERSION: "0.13.8"
 
 jobs:
   preflight:
@@ -66,22 +63,22 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
+          version: ${{ env.UV_VERSION }}
           python-version: "3.12"
-      - run: pip install uv
-      - run: uv pip install -r pyproject.toml --extra dev --system
+      - run: uv sync --locked
+      - name: Install the system libraries PyQt5 needs without a display
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libegl1 libgl1 libxkbcommon0 libdbus-1-3 fontconfig
       - name: Run the features against the instance
         env:
           THREATRAY_INSTANCE: ${{ secrets.THREATRAY_INSTANCE }}
           THREATRAY_API_KEY: ${{ secrets.THREATRAY_API_KEY }}
           THREATRAY_SAMPLE_SHA256: ${{ secrets.THREATRAY_SAMPLE_SHA256 }}
           QT_QPA_PLATFORM: offscreen
-        run: |
-          # the system libraries PyQt5 needs to start without a display
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends libegl1 libgl1 libxkbcommon0 libdbus-1-3 fontconfig
-          python -m unittest discover tests/live -t . -v
+        run: uv run python -m unittest discover tests/live -t . -v
 
   linux:
     name: IDA ${{ matrix.version }} / Linux / headless and GUI
@@ -105,10 +102,12 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
 
       - name: Install HCLI
         run: |
-          pip install uv
           uv tool install "ida-hcli==${HCLI_VERSION}"
           uv tool dir --bin >> "$GITHUB_PATH"
 
@@ -123,7 +122,6 @@ jobs:
             libxkbcommon-x11-0 libxcb-sync1 libfreetype6 xvfb
 
       - name: Install IDA
-        id: ida
         env:
           HCLI_API_KEY: ${{ secrets.HCLI_API_KEY }}
           IDA_LICENSE_ID: ${{ secrets.IDA_LICENSE_ID }}
@@ -132,7 +130,7 @@ jobs:
           IDA_DIR="$RUNNER_TEMP/ida"
           hcli ida install -y -d "ida-pro:${IDA_VERSION}:x64linux" -l "$IDA_LICENSE_ID" -i "$IDA_DIR"
           test -x "$IDA_DIR/ida"
-          echo "dir=$IDA_DIR" >> "$GITHUB_OUTPUT"
+          echo "IDA_DIR=$IDA_DIR" >> "$GITHUB_ENV"
           # the accepted EULA is stored in ida.reg; the test profiles start from a copy of it
           SEED="$RUNNER_TEMP/idausr-seed"
           mkdir -p "$SEED"
@@ -153,7 +151,8 @@ jobs:
         env:
           IDA_VERSION: ${{ matrix.version }}
         run: |
-          uv pip install --target "$RUNNER_TEMP/ida-python" "requests~=2.33" "keyring>=25" "PyHamcrest~=2.1"
+          uv export --locked --no-dev --no-hashes -o "$RUNNER_TEMP/requirements.txt"
+          uv pip install --target "$RUNNER_TEMP/ida-python" -r "$RUNNER_TEMP/requirements.txt" "PyHamcrest~=2.1"
           # IDA 9.0 and 9.1 use Qt 5 and do not ship Python bindings for it on Linux; later versions bring PySide6
           if [[ "$IDA_VERSION" == "9.0" || "$IDA_VERSION" == "9.1" ]]; then
             uv pip install --target "$RUNNER_TEMP/ida-python" "PyQt5==5.15.11"
@@ -164,7 +163,7 @@ jobs:
         env:
           IDAUSR: ${{ runner.temp }}/idausr-seed
         run: |
-          IDAPYSWITCH=$(find "${{ steps.ida.outputs.dir }}" -type f -name 'idapyswitch*' -perm -u+x -print -quit)
+          IDAPYSWITCH=$(find "$IDA_DIR" -type f -name 'idapyswitch*' -perm -u+x -print -quit)
           test -n "$IDAPYSWITCH"
           # the versioned library: idapyswitch rejects the stable-ABI forwarder libpython3.so
           PYTHON_LIBRARY=$(python -c "import sysconfig, pathlib; print(pathlib.Path(sysconfig.get_config_var('LIBDIR')) / sysconfig.get_config_var('INSTSONAME'))")
@@ -177,7 +176,7 @@ jobs:
       - name: Headless checks
         run: |
           python tests/ida/run_ida_check.py --mode headless \
-            --ida-dir "${{ steps.ida.outputs.dir }}" --input "$RUNNER_TEMP/fixture.bin" \
+            --ida-dir "$IDA_DIR" --input "$RUNNER_TEMP/fixture.bin" \
             --seed-idausr "$RUNNER_TEMP/idausr-seed" --work-dir "$RUNNER_TEMP/ida-check"
 
       - name: GUI checks
@@ -187,10 +186,10 @@ jobs:
           # the headless run stored the licence in its profile; the GUI profiles start from that state
           cp "$RUNNER_TEMP/ida-check/idausr-headless/ida.reg" "$RUNNER_TEMP/idausr-seed/ida.reg"
           xvfb-run -a python tests/ida/run_ida_check.py --mode gui \
-            --ida-dir "${{ steps.ida.outputs.dir }}" --input "$RUNNER_TEMP/fixture.bin" \
+            --ida-dir "$IDA_DIR" --input "$RUNNER_TEMP/fixture.bin" \
             --seed-idausr "$RUNNER_TEMP/idausr-seed" --work-dir "$RUNNER_TEMP/ida-check"
           xvfb-run -a python tests/ida/run_ida_check.py --mode gui --without-settings \
-            --ida-dir "${{ steps.ida.outputs.dir }}" --input "$RUNNER_TEMP/fixture.bin" \
+            --ida-dir "$IDA_DIR" --input "$RUNNER_TEMP/fixture.bin" \
             --seed-idausr "$RUNNER_TEMP/idausr-seed" --work-dir "$RUNNER_TEMP/ida-check"
 
       - name: Upload logs
@@ -225,15 +224,16 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.12"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: ${{ env.UV_VERSION }}
 
       - name: Install HCLI
         run: |
-          pip install uv
           uv tool install "ida-hcli==${HCLI_VERSION}"
           uv tool dir --bin >> "$GITHUB_PATH"
 
       - name: Install IDA
-        id: ida
         env:
           HCLI_API_KEY: ${{ secrets.HCLI_API_KEY }}
           IDA_LICENSE_ID: ${{ secrets.IDA_LICENSE_ID }}
@@ -246,7 +246,7 @@ jobs:
             installer="armmac"; IDA_DIR="$RUNNER_TEMP/IDA.app"
           fi
           hcli ida install -y -d "ida-pro:${IDA_VERSION}:${installer}" -l "$IDA_LICENSE_ID" -i "$IDA_DIR"
-          echo "dir=$IDA_DIR" >> "$GITHUB_OUTPUT"
+          echo "IDA_DIR=$IDA_DIR" >> "$GITHUB_ENV"
           SEED="$RUNNER_TEMP/idausr-seed"
           mkdir -p "$SEED"
           # macOS keeps the accepted EULA in ida.reg, Windows in the registry
@@ -256,7 +256,8 @@ jobs:
         env:
           IDA_VERSION: ${{ matrix.version }}
         run: |
-          uv pip install --target "$RUNNER_TEMP/ida-python" "requests~=2.33" "keyring>=25" "PyHamcrest~=2.1"
+          uv export --locked --no-dev --no-hashes -o "$RUNNER_TEMP/requirements.txt"
+          uv pip install --target "$RUNNER_TEMP/ida-python" -r "$RUNNER_TEMP/requirements.txt" "PyHamcrest~=2.1"
           # IDA 9.0 and 9.1 use Qt 5; their bindings do not cover the Python used here
           if [[ "$IDA_VERSION" == "9.0" || "$IDA_VERSION" == "9.1" ]]; then
             uv pip install --target "$RUNNER_TEMP/ida-python" "PyQt5==5.15.11"
@@ -268,7 +269,7 @@ jobs:
           IDAUSR: ${{ runner.temp }}/idausr-seed
         run: |
           # otherwise IDA picks the newest Python on the machine, which its Qt bindings may not support
-          IDAPYSWITCH=$(find "${{ steps.ida.outputs.dir }}" -type f -name 'idapyswitch*' -print -quit)
+          IDAPYSWITCH=$(find "$IDA_DIR" -type f -name 'idapyswitch*' -print -quit)
           test -n "$IDAPYSWITCH"
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             PYTHON_LIBRARY=$(python -c "import sys, pathlib; print(pathlib.Path(sys.base_prefix) / 'python3.dll')")
@@ -297,7 +298,7 @@ jobs:
       - name: Headless checks
         run: |
           python tests/ida/run_ida_check.py --mode headless \
-            --ida-dir "${{ steps.ida.outputs.dir }}" --input "$RUNNER_TEMP/fixture.bin" \
+            --ida-dir "$IDA_DIR" --input "$RUNNER_TEMP/fixture.bin" \
             --seed-idausr "$RUNNER_TEMP/idausr-seed" --work-dir "$RUNNER_TEMP/ida-check"
 
       # On the macOS runners the GUI of IDA 9.0 to 9.4 cannot be driven: 9.0 and 9.1 never get an active
@@ -309,10 +310,10 @@ jobs:
             cp "$RUNNER_TEMP/ida-check/idausr-headless/ida.reg" "$RUNNER_TEMP/idausr-seed/ida.reg"
           fi
           python tests/ida/run_ida_check.py --mode gui \
-            --ida-dir "${{ steps.ida.outputs.dir }}" --input "$RUNNER_TEMP/fixture.bin" \
+            --ida-dir "$IDA_DIR" --input "$RUNNER_TEMP/fixture.bin" \
             --seed-idausr "$RUNNER_TEMP/idausr-seed" --work-dir "$RUNNER_TEMP/ida-check"
           python tests/ida/run_ida_check.py --mode gui --without-settings \
-            --ida-dir "${{ steps.ida.outputs.dir }}" --input "$RUNNER_TEMP/fixture.bin" \
+            --ida-dir "$IDA_DIR" --input "$RUNNER_TEMP/fixture.bin" \
             --seed-idausr "$RUNNER_TEMP/idausr-seed" --work-dir "$RUNNER_TEMP/ida-check"
 
       - name: Upload logs

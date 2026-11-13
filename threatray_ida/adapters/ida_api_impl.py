@@ -2,7 +2,7 @@ import threading
 import time
 from contextlib import contextmanager, suppress
 from pathlib import Path
-from typing import Callable, Iterator, List, Optional, TypeVar
+from typing import Callable, Generator, List, Optional, TypeVar
 
 import ida_kernwin
 import idaapi
@@ -73,7 +73,7 @@ class IdaApiImpl(IdaApi):
         return results[0]
 
     @contextmanager
-    def progress(self, text: str) -> Iterator[Callable[[], None]]:
+    def progress(self, text: str) -> Generator[Callable[[], None], None, None]:
         last_ui_update = time.monotonic()
 
         def keep_responsive() -> None:
