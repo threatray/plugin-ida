@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- `ida-plugin.json` now declares `idaVersions` as `>=8.4` instead of a fixed list, so hcli no longer rejects newer IDA releases such as 9.5.
+
 ## [3.0.4] - 2026-11-10
 
 - The settings dialog and README ask for the **instance name** instead of the "realm", and explain where to find it.
