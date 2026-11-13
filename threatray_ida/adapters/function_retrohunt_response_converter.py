@@ -1,6 +1,8 @@
 from collections import defaultdict
 from typing import Dict, List
 
+from threatray_ida.adapters.response_validation import validate_types
+from threatray_ida.adapters.threatray_api_error import ThreatrayApiError
 from threatray_ida.domain.address import Address
 from threatray_ida.domain.function_match import FunctionMatch
 from threatray_ida.domain.function_retrohunt.function_retrohunt_code_region_with_uids import (
@@ -16,6 +18,15 @@ from threatray_ida.domain.match_similarity import MatchSimilarity
 class FunctionRetrohuntResponseConverter:
     @staticmethod
     def to_code_region_with_uids(api_response: Dict) -> List[FunctionRetrohuntCodeRegionWithUids]:
+        try:
+            result = FunctionRetrohuntResponseConverter._to_code_region_with_uids(api_response)
+            validate_types(result)
+            return result
+        except (KeyError, TypeError, ValueError, AttributeError) as e:
+            raise ThreatrayApiError(f'Unexpected response from the Threatray API: {type(e).__name__}: {e}') from e
+
+    @staticmethod
+    def _to_code_region_with_uids(api_response: Dict) -> List[FunctionRetrohuntCodeRegionWithUids]:
         analysis_id_to_analysis = {a['analysis_id']: a for a in api_response['analyses']}
 
         code_region_to_matches: Dict[str, Dict[str, List[FunctionMatch]]] = {}
