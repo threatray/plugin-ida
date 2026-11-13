@@ -1,8 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [3.0.5] - 2026-11-13
 
-- `ida-plugin.json` now declares `idaVersions` as `>=8.4` instead of a fixed list, so hcli no longer rejects newer IDA releases such as 9.5.
+- The plugin can now be installed with `hcli plugin install threatray` on IDA 9.5 and later releases:
+  `ida-plugin.json` declares `idaVersions` as `>=9.0` instead of a fixed list.
+- The README lists the IDA versions the plugin is tested with (8.4 to 9.4) and how to install it with hcli.
 
 ## [3.0.4] - 2026-11-10
 
