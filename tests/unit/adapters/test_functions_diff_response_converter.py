@@ -1,8 +1,10 @@
+import copy
 import unittest
 
 from hamcrest import assert_that, is_
 
 from threatray_ida.adapters.functions_diff_response_converter import FunctionsDiffResponseConverter
+from threatray_ida.adapters.threatray_api_error import ThreatrayApiError
 from threatray_ida.domain.address import Address
 from threatray_ida.domain.address_offset import AddressOffset
 from threatray_ida.domain.function_match import FunctionMatch
@@ -28,6 +30,24 @@ class TestFunctionsDiffResponseConverter(unittest.TestCase):
         assert_that(response.functions[1].address_offset, is_(AddressOffset(2 - different_image_base)))
         assert_that(response.functions[2].address_offset, is_(AddressOffset(10 - different_image_base)))
         assert_that(response.functions[3].address_offset, is_(AddressOffset(12 - different_image_base)))
+
+    def test_unknown_match_confidence_raises_api_error(self):
+        raw_response = copy.deepcopy(RAW_RESPONSE)
+        raw_response['functions'][0]['matches'][0]['confidence'] = 'brand-new-level'
+        with self.assertRaises(ThreatrayApiError):
+            FunctionsDiffResponseConverter.to_functions_diff_response(raw_response, Address(IMAGE_BASE))
+
+    def test_unknown_match_similarity_raises_api_error(self):
+        raw_response = copy.deepcopy(RAW_RESPONSE)
+        raw_response['functions'][0]['matches'][0]['similarity'] = 'brand-new-level'
+        with self.assertRaises(ThreatrayApiError):
+            FunctionsDiffResponseConverter.to_functions_diff_response(raw_response, Address(IMAGE_BASE))
+
+    def test_missing_key_raises_api_error(self):
+        raw_response = copy.deepcopy(RAW_RESPONSE)
+        del raw_response['source_file']
+        with self.assertRaises(ThreatrayApiError):
+            FunctionsDiffResponseConverter.to_functions_diff_response(raw_response, Address(IMAGE_BASE))
 
 
 # Note: the negative address offset does not make sense, but it is due to the fixtre data

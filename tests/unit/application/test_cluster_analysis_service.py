@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 from hamcrest import assert_that, is_
 
 from threatray_ida.application.cluster_analysis_service import ClusterAnalysisService
+from threatray_ida.application.cluster_analysis_ui_facade import ClusterAnalysisUIFacade
 from threatray_ida.domain.address import Address
 from threatray_ida.domain.address_offset import AddressOffset
 from threatray_ida.domain.cluster_analysis_settings import ClusterAnalysisSettings
@@ -21,6 +22,7 @@ from threatray_ida.domain.threat import Threat
 class TestClusterAnalysisService(unittest.TestCase):
     def test_workflow(self):
         mock_ui_facade = MagicMock()
+        mock_ui_facade.run_with_wait_box.side_effect = lambda message, task: task()
         mock_ui_facade.resolve_to_local_addresses.side_effect = lambda x: x
         mock_threatray_api = MagicMock()
         mock_threatray_api.functions_diff.return_value = FUNCTIONS_DIFF_RESPONSE
@@ -39,6 +41,7 @@ class TestClusterAnalysisService(unittest.TestCase):
     def test_workflow_when_no_benign_code_and_no_query_functions_were_found_and_retry_is_made(self):
         retry = True
         mock_ui_facade = MagicMock()
+        mock_ui_facade.run_with_wait_box.side_effect = lambda message, task: task()
         mock_ui_facade.resolve_to_local_addresses.side_effect = lambda x: x
         mock_ui_facade.get_settings.return_value = ClusterAnalysisSettings(target_files=(File(hash='a' * 64),),
                                                                            with_benign_code=False)
@@ -67,6 +70,7 @@ class TestClusterAnalysisService(unittest.TestCase):
         for with_benign_code in (True, False):
             with self.subTest(with_benign_code=with_benign_code):
                 mock_ui_facade = MagicMock()
+                mock_ui_facade.run_with_wait_box.side_effect = lambda message, task: task()
                 mock_ui_facade.resolve_to_local_addresses.side_effect = lambda x: x
                 mock_ui_facade.ask_for_retry_when_no_benign_code_and_no_query_functions_were_found.return_value = retry
                 mock_ui_facade.get_settings.return_value = ClusterAnalysisSettings(target_files=(File(hash='a' * 64),),
@@ -95,6 +99,7 @@ class TestClusterAnalysisService(unittest.TestCase):
     def test_workflow_when_no_benign_code_and_no_matches_were_found_and_retry_is_made(self):
         retry = True
         mock_ui_facade = MagicMock()
+        mock_ui_facade.run_with_wait_box.side_effect = lambda message, task: task()
         mock_ui_facade.resolve_to_local_addresses.side_effect = lambda x: x
         mock_ui_facade.get_settings.return_value = ClusterAnalysisSettings(target_files=(File(hash='a' * 64),),
                                                                            with_benign_code=False)
@@ -123,6 +128,7 @@ class TestClusterAnalysisService(unittest.TestCase):
         for with_benign_code in (True, False):
             with self.subTest(with_benign_code=with_benign_code):
                 mock_ui_facade = MagicMock()
+                mock_ui_facade.run_with_wait_box.side_effect = lambda message, task: task()
                 mock_ui_facade.resolve_to_local_addresses.side_effect = lambda x: x
                 mock_ui_facade.ask_for_retry_when_no_benign_code_and_no_matches_were_found.return_value = retry
                 mock_ui_facade.get_settings.return_value = ClusterAnalysisSettings(target_files=(File(hash='a' * 64),),
@@ -192,3 +198,11 @@ FUNCTIONS_DIFF_RESPONSE_WITH_NO_FUNCTIONS = replace(FUNCTIONS_DIFF_RESPONSE, fun
 FUNCTIONS_DIFF_RESPONSE_WITH_NO_MATCHES = replace(FUNCTIONS_DIFF_RESPONSE, functions=tuple(
     replace(function, matches=tuple()) for function in FUNCTIONS_DIFF_RESPONSE.functions
 ))
+
+
+class TestFacadeDefaults(unittest.TestCase):
+    def test_a_facade_without_a_wait_box_just_runs_the_task(self):
+        abstract_methods = set(ClusterAnalysisUIFacade.__abstractmethods__)
+        assert_that('run_with_wait_box' in abstract_methods, is_(False))
+        assert_that(ClusterAnalysisUIFacade.run_with_wait_box(MagicMock(), 'message', lambda: 'result'),
+                    is_('result'))

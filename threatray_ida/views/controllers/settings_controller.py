@@ -2,6 +2,8 @@ from contextlib import suppress
 
 from threatray_ida.adapters.threatray_plugin_setup_error import ThreatrayPluginSetupError
 from threatray_ida.application.settings_provider import SettingsProvider
+from threatray_ida.application.validation_error import ValidationError
+from threatray_ida.domain.settings import normalize_api_key, normalize_instance_name
 from threatray_ida.logger import get_log
 
 log = get_log()
@@ -21,8 +23,11 @@ class SettingsController:
             self.__api_key = self.__settings_provider.get_api_key()
 
     def save_settings(self, realm: str, api_key: str):
-        self.__realm = realm
-        self.__api_key = api_key
+        try:
+            self.__realm = normalize_instance_name(realm)
+            self.__api_key = normalize_api_key(api_key)
+        except ValueError as e:
+            raise ValidationError(str(e)) from e
         self.__settings_provider.store_settings(realm=self.__realm, api_key=self.__api_key)
 
     @property
@@ -41,7 +46,7 @@ class SettingsController:
     def info_label(self) -> str:
         return ('Set your instance name and API key.\n'
                 "The instance name is the first part of the Threatray web app's address after you sign in: "
-                'https://<instance-name>.analysis.threatray.com\n'
+                'https://<instance-name>.analysis.threatray.com (pasting the full address works too).\n'
                 'You can find the API key in the UI under the Settings menu -> API Key.\n'
                 'This menu can be opened again under Edit > Plugins > Threatray.\n')
 

@@ -1,5 +1,5 @@
 from dataclasses import replace
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple, TypeVar
 
 from threatray_ida.application.function_retrohunt_ui_facade import FunctionRetrohuntUIFacade
 from threatray_ida.domain.address import Address
@@ -9,6 +9,8 @@ from threatray_ida.domain.function_retrohunt.function_retrohunt_code_region_with
     FunctionRetrohuntCodeRegionWithAddresses,
 )
 from threatray_ida.views.ida_api import IdaApi
+
+T = TypeVar('T')
 
 
 class MockFunctionRetrohuntUIFacade(FunctionRetrohuntUIFacade):
@@ -55,11 +57,8 @@ class MockFunctionRetrohuntUIFacade(FunctionRetrohuntUIFacade):
                     result: List[FunctionRetrohuntCodeRegionWithAddresses]):
         self.result = result
 
-    def show_wait_box(self, message: str):
-        self.__ida_api.show_wait_box(message)
-
-    def hide_wait_box(self):
-        self.__ida_api.hide_wait_box()
+    def run_with_wait_box(self, message: str, task: Callable[[], T]) -> T:
+        return self.__ida_api.run_with_wait_box(message, task)
 
     def get_hash_sha256_of_input_file(self) -> str:
         return self.__ida_api.get_hash_sha256_of_input_file()

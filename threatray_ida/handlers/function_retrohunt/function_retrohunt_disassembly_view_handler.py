@@ -15,6 +15,8 @@ from threatray_ida.views.components.message_box import MessageBox
 
 log = get_log()
 
+CODE_VIEW_WIDGET_TYPES = (idaapi.BWN_DISASM, idaapi.BWN_PSEUDOCODE)
+
 
 class FunctionRetrohuntDisassemblyViewHandler(ThreatrayHandler):
     action_name = f'{PLUGIN_ID}:function_retrohunt_disassembly_view'
@@ -41,15 +43,14 @@ class FunctionRetrohuntDisassemblyViewHandler(ThreatrayHandler):
         return OKAY_RESPONSE
 
     def update(self, ctx) -> int:
-        if ctx.widget_type == idaapi.BWN_DISASM:
+        if ctx.widget_type in CODE_VIEW_WIDGET_TYPES:
             return idaapi.AST_ENABLE_FOR_WIDGET
         return idaapi.AST_DISABLE_FOR_WIDGET
 
 
 class FunctionRetrohuntDisassemblyViewHook(idaapi.UI_Hooks):
     def finish_populating_widget_popup(self, widget, popup):
-        tft = idaapi.get_widget_type(widget)
-        if tft == idaapi.BWN_DISASM:
+        if idaapi.get_widget_type(widget) in CODE_VIEW_WIDGET_TYPES:
             idaapi.attach_action_to_popup(
                 widget,
                 popup,

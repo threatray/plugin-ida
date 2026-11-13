@@ -7,7 +7,7 @@ from threatray_ida.constants import OKAY_RESPONSE
 from threatray_ida.domain.match_confidence import MatchConfidence
 from threatray_ida.domain.match_similarity import MatchSimilarity
 from threatray_ida.logger import get_log
-from threatray_ida.qt_compat import QAction, QShortcut, QtCore, QtGui, QtWidgets
+from threatray_ida.qt_compat import QAction, QShortcut, Qt, QtCore, QtGui, QtWidgets
 from threatray_ida.views.components.result_view_constants import (
     CONTEXT_MENU_COPY_TEXT,
     EXPORT_TABLE_CAPTION_TEXT,
@@ -17,11 +17,13 @@ from threatray_ida.views.components.result_view_constants import (
     JUMP_TO_FUNCTION_TEXT,
     get_context_menu_function_retrohunt_text,
 )
+from threatray_ida.views.components.row_heights import keep_rows_fitted
 from threatray_ida.views.controllers.cluster_analysis_result_controller import ClusterAnalysisResultController
 from threatray_ida.views.controllers.data_exporter import DataExporter
 from threatray_ida.views.controllers.table_model import TableModel
 
 _log = get_log()
+_FILTER_DEBOUNCE_MS = 200
 
 
 # pylint: disable=attribute-defined-outside-init,too-many-instance-attributes
@@ -33,7 +35,8 @@ class ClusterAnalysisResultView(idaapi.PluginForm):
 
     def OnCreate(self, form) -> int:  # pylint: disable=invalid-name
         main_widget = idaapi.find_widget('IDA View-A')
-        idaapi.activate_widget(main_widget, True)
+        if main_widget:
+            idaapi.activate_widget(main_widget, True)
         self.parent = self.FormToPyQtWidget(form)  # pylint: disable=attribute-defined-outside-init
         self.__create()
         return OKAY_RESPONSE
@@ -47,38 +50,46 @@ class ClusterAnalysisResultView(idaapi.PluginForm):
         # Label
         self.label = QtWidgets.QLabel(f'Input files (sha256/sha1/md5): '
                                       f'<pre>{self.__controller.get_input_file_hashes()}</pre>')
+        self.label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.layout.addWidget(self.label, 0, 0, 1, 2)
 
         # Sliders
         self.__create_filter_controls()
+        # the table is not attached yet, so the initial filtering does not reset the model
+        self.__controller.set_min_similarity(self.get_selected_similarity())
+        self.__controller.set_min_confidence(self.get_selected_confidence())
+        self.__controller.filter('')
 
         # Filter
         self.filter_label = QtWidgets.QLabel(FILTER_TEXT)
         self.layout.addWidget(self.filter_label, 2, 0, 1, 1)
 
         self.line_edit = QtWidgets.QLineEdit()
-        self.line_edit.textEdited.connect(self.model.filter)
+        self.filter_timer = QtCore.QTimer(self.parent)
+        self.filter_timer.setSingleShot(True)
+        self.filter_timer.setInterval(_FILTER_DEBOUNCE_MS)
+        self.filter_timer.timeout.connect(self.__apply_text_filter)
+        self.line_edit.textEdited.connect(lambda _: self.filter_timer.start())
         self.layout.addWidget(self.line_edit, 2, 1, 1, 1)
 
         # table
         self.__create_table()
 
         # QTableView Headers
-        self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
         self.horizontal_header = self.table.horizontalHeader()
-        self.horizontal_header.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
-        self.horizontal_header.resizeSections(QtWidgets.QHeaderView.ResizeToContents)
-
-        self.table.sortByColumn(self.__controller.get_default_sort_column(), QtCore.Qt.SortOrder.DescendingOrder)
+        self.horizontal_header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
+        # enabling sorting sorts once, using the indicator set here
+        self.horizontal_header.setSortIndicator(self.__controller.get_default_sort_column(),
+                                                Qt.SortOrder.DescendingOrder)
+        self.table.setSortingEnabled(True)
+        self.horizontal_header.resizeSections(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
 
         self.horizontal_header.setStretchLastSection(True)
         self.horizontal_header.setDefaultAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
         self.horizontal_header.setProperty("showSortIndicator", True)
 
         self.layout.addWidget(self.table, 3, 0, 1, 2)
-
-        self.__handle_confidence_changed()
-        self.__handle_similarity_changed()
+        keep_rows_fitted(self.table, self.__controller)  # once the table has its parent's font
 
     # pylint: disable=too-many-statements
     def __create_filter_controls(self):
@@ -93,7 +104,7 @@ class ClusterAnalysisResultView(idaapi.PluginForm):
         # Create checkbox for showing unmatched functions
         self.show_unmatched_checkbox = QtWidgets.QCheckBox("Show unmatched functions")
         self.show_unmatched_checkbox.setChecked(False)
-        self.show_unmatched_checkbox.stateChanged.connect(self.__handle_show_unmatched_changed)
+        self.show_unmatched_checkbox.toggled.connect(self.__handle_show_unmatched_changed)
         self.sliders_layout.addWidget(self.show_unmatched_checkbox)
 
         self.__create_similarity_slider()
@@ -161,7 +172,7 @@ class ClusterAnalysisResultView(idaapi.PluginForm):
         # Minimum confidence slider container
         self.confidence_container = QtWidgets.QWidget()
         self.confidence_container.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred)
-        self.similarity_container.setFixedWidth(350)
+        self.confidence_container.setFixedWidth(350)
         self.confidence_layout = QtWidgets.QHBoxLayout(self.confidence_container)
         self.confidence_layout.setContentsMargins(0, 0, 0, 0)
         self.confidence_layout.setSpacing(10)
@@ -212,12 +223,24 @@ class ClusterAnalysisResultView(idaapi.PluginForm):
     def __create_table(self):
         self.table = QtWidgets.QTableView()
         self.table.setModel(self.model)
-        self.table.setSortingEnabled(True)
 
-        self.table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.__on_custom_context_menu_requested)
         self.table.doubleClicked.connect(self.__handle_double_click)
-        QShortcut(QtGui.QKeySequence.Copy, self.table, activated=self.__handle_copy_request)
+        # Return does not activate an item view entry on macOS, so it is bound explicitly on every platform
+        self.open_shortcuts = [QShortcut(QtGui.QKeySequence(key), self.table) for key in
+                               (Qt.Key.Key_Return, Qt.Key.Key_Enter)]
+        for shortcut in self.open_shortcuts:
+            shortcut.setContext(Qt.ShortcutContext.WidgetShortcut)
+            shortcut.activated.connect(self.__open_current_entry)
+
+        self.copy_shortcut = QShortcut(QtGui.QKeySequence.StandardKey.Copy, self.table)
+        self.copy_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.copy_shortcut.activated.connect(self.__handle_copy_request)
+
+        self.find_shortcut = QShortcut(QtGui.QKeySequence.StandardKey.Find, self.parent)
+        self.find_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.find_shortcut.activated.connect(self.__focus_filter)
 
     def __on_custom_context_menu_requested(self):
         selection = self.table.selectedIndexes()
@@ -225,24 +248,25 @@ class ClusterAnalysisResultView(idaapi.PluginForm):
         has_several_rows_selected = len({cell.row() for cell in selection}) > 1
 
         context_menu = QtWidgets.QMenu(self.table)
-        action_copy = QAction(CONTEXT_MENU_COPY_TEXT, self.table)
-        action_copy.setShortcut(QtGui.QKeySequence.Copy)
+        context_menu.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        action_copy = QAction(CONTEXT_MENU_COPY_TEXT, context_menu)
+        action_copy.setShortcut(QtGui.QKeySequence.StandardKey.Copy)
         action_copy.setEnabled(has_selection)
         context_menu.addAction(action_copy)
         action_copy.triggered.connect(self.__handle_copy_request)
 
         action_retrohunt = QAction(get_context_menu_function_retrohunt_text(has_several_rows_selected),
-                                             self.table)
+                                   context_menu)
         action_retrohunt.setEnabled(has_selection)
         context_menu.addAction(action_retrohunt)
         action_retrohunt.triggered.connect(self.__handle_function_retrohunt_request)
 
-        action_jump = QAction(JUMP_TO_FUNCTION_TEXT, self.table)
+        action_jump = QAction(JUMP_TO_FUNCTION_TEXT, context_menu)
         action_jump.setEnabled(has_selection and not has_several_rows_selected)
         context_menu.addAction(action_jump)
         action_jump.triggered.connect(lambda: self.__jump_to_function(selection[0].row()))
 
-        action_export = QAction(EXPORT_TABLE_TEXT, self.table)
+        action_export = QAction(EXPORT_TABLE_TEXT, context_menu)
         action_export.setEnabled(True)
         context_menu.addAction(action_export)
         action_export.triggered.connect(self.__export_to_csv)
@@ -251,10 +275,15 @@ class ClusterAnalysisResultView(idaapi.PluginForm):
 
     def __export_to_csv(self) -> None:
         file_name_filter: Tuple[str, str] = QtWidgets.QFileDialog.getSaveFileName(
+            parent=self.table,
             caption=EXPORT_TABLE_CAPTION_TEXT,
             directory=f'{self.__widget_name.replace(" ", "_")}.csv',
             filter=EXPORT_TABLE_FILTER_TEXT)
-        DataExporter.export_to_csv(file_name_filter[0], self.__controller)
+        try:
+            DataExporter.export_to_csv(file_name_filter[0], self.__controller)
+        except OSError as e:
+            _log.error(f'Failed to export the table: {e}')
+            QtWidgets.QMessageBox.warning(self.table, EXPORT_TABLE_CAPTION_TEXT, f'Failed to export the table: {e}')
 
     def __handle_double_click(self, index: QtCore.QModelIndex):
         if index.column() == self.__controller.get_address_column():
@@ -263,6 +292,18 @@ class ClusterAnalysisResultView(idaapi.PluginForm):
     def __jump_to_function(self, row: int):
         data = self.__controller.data[row]
         open_function_in_disasm_window(data.model.address, self.__widget_name)
+
+    def __open_current_entry(self):
+        index = self.table.currentIndex()
+        if index.isValid():
+            self.__handle_double_click(index)
+
+    def __focus_filter(self):
+        self.line_edit.setFocus()
+        self.line_edit.selectAll()
+
+    def __apply_text_filter(self):
+        self.model.filter(self.line_edit.text())
 
     def __handle_copy_request(self):
         DataExporter.copy_selection_to_clipboard(sorted(self.table.selectedIndexes()), self.__controller)
@@ -307,10 +348,9 @@ class ClusterAnalysisResultView(idaapi.PluginForm):
         current_filter_text = self.line_edit.text()
         self.model.filter(current_filter_text)
 
-    def __handle_show_unmatched_changed(self, state):
+    def __handle_show_unmatched_changed(self, checked: bool):
         """Handle changes to the show unmatched functions checkbox."""
-        show_unmatched = state == QtCore.Qt.Checked
-        self.__controller.set_show_unmatched_functions(show_unmatched)
+        self.__controller.set_show_unmatched_functions(checked)
         current_filter_text = self.line_edit.text()
         self.model.filter(current_filter_text)
 

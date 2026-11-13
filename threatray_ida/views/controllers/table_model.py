@@ -1,11 +1,22 @@
-from threatray_ida.qt_compat import QtCore, QtGui
+from typing import Dict
+
+from threatray_ida.constants import MONOSPACE_FONT
+from threatray_ida.qt_compat import Qt, QtCore, QtGui
 from threatray_ida.views.controllers.table_controller import TableController
+
+_DISPLAY_ROLE = Qt.ItemDataRole.DisplayRole
+_TEXT_ALIGNMENT_ROLE = Qt.ItemDataRole.TextAlignmentRole
+_FOREGROUND_ROLE = Qt.ItemDataRole.ForegroundRole
+_TOOLTIP_ROLE = Qt.ItemDataRole.ToolTipRole
+_FONT_ROLE = Qt.ItemDataRole.FontRole
 
 
 class TableModel(QtCore.QAbstractTableModel):
     def __init__(self, controller: TableController):
         QtCore.QAbstractTableModel.__init__(self)
         self.__controller = controller
+        self.__colors: Dict[int, QtGui.QColor] = {}
+        self.__fonts: Dict[str, QtGui.QFont] = {}
 
     # pylint: disable=invalid-name,unused-argument
     def rowCount(self, parent=QtCore.QModelIndex()):
@@ -17,41 +28,52 @@ class TableModel(QtCore.QAbstractTableModel):
 
     # pylint: disable=invalid-name
     def headerData(self, section: int, orientation: QtCore.Qt.Orientation, role: int = ...):  # type: ignore
-        if role != QtCore.Qt.DisplayRole:
+        if role != _DISPLAY_ROLE:
             return None
 
-        if orientation == QtCore.Qt.Horizontal:
+        if orientation == Qt.Orientation.Horizontal:
             return self.__controller.header[section]
         else:  # QtCore.Qt.Vertical
             return f"{section + 1}"  # start row index at 1
 
-    def data(self, index: QtCore.QModelIndex, role=QtCore.Qt.DisplayRole):
-        column = index.column()
-        row = index.row()
-
-        if role == QtCore.Qt.DisplayRole:
-            return self.__controller.data[row].display_values[column]
-        elif role == QtCore.Qt.TextAlignmentRole:
-            return QtCore.Qt.AlignLeft
-        elif role == QtCore.Qt.ForegroundRole:
-            color = self.__controller.get_text_color(column)
-            if color:
-                return QtGui.QColor(color)
-        elif role == QtCore.Qt.ToolTipRole:
-            return self.__controller.get_tooltip(column)
-        elif role == QtCore.Qt.FontRole:
-            font = self.__controller.get_font(column)
-            if font:
-                return QtGui.QFont(font)
+    def data(self, index: QtCore.QModelIndex, role=_DISPLAY_ROLE):
+        if role == _DISPLAY_ROLE:
+            return self.__controller.data[index.row()].display_values[index.column()]
+        if role == _TEXT_ALIGNMENT_ROLE:
+            return Qt.AlignmentFlag.AlignLeft
+        if role == _FOREGROUND_ROLE:
+            color = self.__controller.get_text_color(index.column())
+            return self.__get_color(color) if color else None
+        if role == _TOOLTIP_ROLE:
+            return self.__controller.get_tooltip(index.column())
+        if role == _FONT_ROLE:
+            font = self.__controller.get_font(index.column())
+            return self.__get_font(font) if font else None
         return None
 
     def sort(self, column: int, order: QtCore.Qt.SortOrder = ...):
         self.beginResetModel()
-        reverse = order == QtCore.Qt.DescendingOrder
-        self.__controller.sort(column, reverse)
-        self.endResetModel()
+        try:
+            self.__controller.sort(column, order == Qt.SortOrder.DescendingOrder)
+        finally:
+            self.endResetModel()
 
     def filter(self, filter_text: str):
         self.beginResetModel()
-        self.__controller.filter(filter_text)
-        self.endResetModel()
+        try:
+            self.__controller.filter(filter_text)
+        finally:
+            self.endResetModel()
+
+    def __get_color(self, color: int) -> QtGui.QColor:
+        if color not in self.__colors:
+            self.__colors[color] = QtGui.QColor(color)
+        return self.__colors[color]
+
+    def __get_font(self, font: str) -> QtGui.QFont:
+        if font not in self.__fonts:
+            if font == MONOSPACE_FONT:
+                self.__fonts[font] = QtGui.QFontDatabase.systemFont(QtGui.QFontDatabase.SystemFont.FixedFont)
+            else:
+                self.__fonts[font] = QtGui.QFont(font)
+        return self.__fonts[font]

@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import List, Tuple
+from typing import Callable, List, Tuple, TypeVar
 
 from threatray_ida.domain.address import Address
 from threatray_ida.domain.function import Function
 from threatray_ida.domain.function_retrohunt.function_retrohunt_code_region_with_addresses import (
     FunctionRetrohuntCodeRegionWithAddresses,
 )
+
+T = TypeVar('T')
 
 
 class FunctionRetrohuntUIFacade(ABC):
@@ -43,13 +45,12 @@ class FunctionRetrohuntUIFacade(ABC):
     def show_input_function_validation_box(self, message: str):
         pass
 
-    @abstractmethod
-    def show_wait_box(self, message: str):
-        pass
+    def run_with_wait_box(self, message: str, task: Callable[[], T]) -> T:
+        """Run a task that must not call into IDA while the user waits; raise CanceledError if they cancel.
 
-    @abstractmethod
-    def hide_wait_box(self):
-        pass
+        Not abstract, like progress(): a facade written before these existed keeps working, without a wait box.
+        """
+        return task()
 
     @abstractmethod
     def get_hash_sha256_of_input_file(self) -> str:

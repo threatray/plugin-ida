@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Optional, Tuple
 
 from threatray_ida.domain.threat import Threat
 
@@ -9,11 +9,11 @@ from threatray_ida.domain.threat import Threat
 class FunctionsDiffFile:
     analysis_id: str
     base: int
-    function_count: int
+    function_count: Optional[int]  # not used by the plugin, like size
     hash_md5: str
     hash_sha1: str
     hash_sha256: str
     pid: int
-    size: int
+    size: Optional[int]
     threats: Tuple[Threat, ...]
     verdict: str

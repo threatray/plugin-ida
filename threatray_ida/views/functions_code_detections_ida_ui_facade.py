@@ -1,5 +1,5 @@
 from dataclasses import replace
-from typing import Callable, List, Optional
+from typing import Callable, ContextManager, List, Optional, TypeVar
 
 from threatray_ida.application.color_selector_factory import ColorSelectorFactory
 from threatray_ida.application.functions_code_detections_ui_facade import FunctionsCodeDetectionsUIFacade
@@ -30,6 +30,8 @@ from threatray_ida.views.controllers.functions_code_detections.functions_code_de
 )
 from threatray_ida.views.ida_api import IdaApi
 from threatray_ida.views.mediator_for_function_retrohunt import MediatorForFunctionRetrohunt
+
+T = TypeVar('T')
 
 
 class FunctionsCodeDetectionsIDAUIFacade(FunctionsCodeDetectionsUIFacade):
@@ -72,11 +74,11 @@ class FunctionsCodeDetectionsIDAUIFacade(FunctionsCodeDetectionsUIFacade):
     def show_message_box(self, header: str, message: str):
         MessageBox.create(header, message)
 
-    def show_wait_box(self, message: str):
-        self.__ida_api.show_wait_box(message)
+    def run_with_wait_box(self, message: str, task: Callable[[], T]) -> T:
+        return self.__ida_api.run_with_wait_box(message, task)
 
-    def hide_wait_box(self):
-        self.__ida_api.hide_wait_box()
+    def progress(self, message: str) -> ContextManager[Callable[[], None]]:
+        return self.__ida_api.progress(message)
 
     def get_function(self, address: Address) -> Optional[NativeFunction]:
         return self.__ida_api.get_function(address)
@@ -84,8 +86,8 @@ class FunctionsCodeDetectionsIDAUIFacade(FunctionsCodeDetectionsUIFacade):
     def get_function_name(self, address: Address) -> str:
         return self.__ida_api.get_function_name(address)
 
-    def set_function_name(self, address: Address, name: str):
-        self.__ida_api.set_function_name(address, name)
+    def set_function_name(self, address: Address, name: str) -> bool:
+        return self.__ida_api.set_function_name(address, name)
 
     def get_function_comment(self, function: NativeFunction) -> str:
         return self.__ida_api.get_function_comment(function)

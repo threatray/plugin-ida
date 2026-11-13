@@ -40,6 +40,7 @@ class FunctionsCodeDetectionsResultController(TableController):  # pylint: disab
                                                                 not DEFAULT_SHOW_UNKNOWN_BENIGN_FUNCTIONS)
         self.__threatray_api = threatray_api
         self.__color_selector_factory = color_selector_factory
+        self.__hyperlink_color: Optional[int] = None
         self.__mediator = mediator
         self.__filter_text = ''
         self.filter(self.__filter_text)
@@ -76,7 +77,9 @@ class FunctionsCodeDetectionsResultController(TableController):  # pylint: disab
 
     def get_text_color(self, column: int) -> Optional[int]:
         if column in self.get_url_columns() or column == self.get_address_column():
-            return self.__color_selector_factory.build().select_hyperlink_color_rgb()
+            if self.__hyperlink_color is None:
+                self.__hyperlink_color = self.__color_selector_factory.build().select_hyperlink_color_rgb()
+            return self.__hyperlink_color
         return None
 
     def get_tooltip(self, column: int) -> Optional[str]:

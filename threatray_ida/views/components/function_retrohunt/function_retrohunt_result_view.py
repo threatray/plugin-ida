@@ -8,7 +8,7 @@ from threatray_ida.constants import OKAY_RESPONSE
 from threatray_ida.domain.match_confidence import MatchConfidence
 from threatray_ida.domain.match_similarity import MatchSimilarity
 from threatray_ida.logger import get_log
-from threatray_ida.qt_compat import QAction, QShortcut, QtCore, QtGui, QtWidgets
+from threatray_ida.qt_compat import QAction, QShortcut, Qt, QtCore, QtGui, QtWidgets
 from threatray_ida.views.components.result_view_constants import (
     CONTEXT_MENU_COPY_LINK_TEXT,
     CONTEXT_MENU_COPY_TEXT,
@@ -18,6 +18,7 @@ from threatray_ida.views.components.result_view_constants import (
     FILTER_TEXT,
     get_context_menu_cluster_against_text,
 )
+from threatray_ida.views.components.row_heights import keep_rows_fitted
 from threatray_ida.views.controllers.data_exporter import DataExporter
 from threatray_ida.views.controllers.function_retrohunt_result_controller import (
     FunctionRetrohuntResultController,
@@ -25,6 +26,7 @@ from threatray_ida.views.controllers.function_retrohunt_result_controller import
 from threatray_ida.views.controllers.table_model import TableModel
 
 _log = get_log()
+_FILTER_DEBOUNCE_MS = 200
 
 
 # pylint: disable=attribute-defined-outside-init,too-many-instance-attributes
@@ -36,7 +38,8 @@ class FunctionRetrohuntResultView(idaapi.PluginForm):
 
     def OnCreate(self, form) -> int:  # pylint: disable=invalid-name
         main_widget = idaapi.find_widget('IDA View-A')
-        idaapi.activate_widget(main_widget, True)
+        if main_widget:
+            idaapi.activate_widget(main_widget, True)
         self.parent = self.FormToPyQtWidget(form)
         self.__create()
         return OKAY_RESPONSE
@@ -49,34 +52,45 @@ class FunctionRetrohuntResultView(idaapi.PluginForm):
 
         # Input functions label
         self.label = QtWidgets.QLabel(f'Input functions: <pre>{self.__controller.selected_function_addresses}</pre>')
+        self.label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.layout.addWidget(self.label, 0, 0, 1, 2)
 
         # Sliders
         self.__create_sliders()
+        # the table is not attached yet, so the initial filtering does not reset the model
+        self.__controller.set_min_similarity(self.get_selected_similarity())
+        self.__controller.set_min_confidence(self.get_selected_confidence())
+        self.__controller.filter('')
 
         self.filter_label = QtWidgets.QLabel(FILTER_TEXT)
         self.layout.addWidget(self.filter_label, 2, 0, 1, 1)
 
         self.line_edit = QtWidgets.QLineEdit()
-        self.line_edit.textEdited.connect(self.model.filter)
+        self.filter_timer = QtCore.QTimer(self.parent)
+        self.filter_timer.setSingleShot(True)
+        self.filter_timer.setInterval(_FILTER_DEBOUNCE_MS)
+        self.filter_timer.timeout.connect(self.__apply_text_filter)
+        self.line_edit.textEdited.connect(lambda _: self.filter_timer.start())
         self.layout.addWidget(self.line_edit, 2, 1, 1, 1)
 
         # Table
         self.__create_table()
 
         # QTableView Headers
-        self.table.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeToContents)
         self.horizontal_header = self.table.horizontalHeader()
-        self.horizontal_header.setSectionResizeMode(QtWidgets.QHeaderView.Interactive)
-        self.horizontal_header.resizeSections(QtWidgets.QHeaderView.ResizeToContents)
-
-        self.table.sortByColumn(self.__controller.get_default_sort_column(), QtCore.Qt.SortOrder.DescendingOrder)
+        self.horizontal_header.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
+        # enabling sorting sorts once, using the indicator set here
+        self.horizontal_header.setSortIndicator(self.__controller.get_default_sort_column(),
+                                                Qt.SortOrder.DescendingOrder)
+        self.table.setSortingEnabled(True)
+        self.horizontal_header.resizeSections(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
 
         self.horizontal_header.setStretchLastSection(True)
         self.horizontal_header.setDefaultAlignment(QtCore.Qt.AlignmentFlag.AlignLeft)
         self.horizontal_header.setProperty("showSortIndicator", True)
 
         self.layout.addWidget(self.table, 3, 0, 1, 2)
+        keep_rows_fitted(self.table, self.__controller)  # once the table has its parent's font
 
     def __create_sliders(self):
 
@@ -153,7 +167,7 @@ class FunctionRetrohuntResultView(idaapi.PluginForm):
         # Minimum confidence slider container
         self.confidence_container = QtWidgets.QWidget()
         self.confidence_container.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Preferred)
-        self.similarity_container.setFixedWidth(350)
+        self.confidence_container.setFixedWidth(350)
         self.confidence_layout = QtWidgets.QHBoxLayout(self.confidence_container)
         self.confidence_layout.setContentsMargins(0, 0, 0, 0)
         self.confidence_layout.setSpacing(10)
@@ -204,12 +218,24 @@ class FunctionRetrohuntResultView(idaapi.PluginForm):
     def __create_table(self):
         self.table = QtWidgets.QTableView()
         self.table.setModel(self.model)
-        self.table.setSortingEnabled(True)
 
-        self.table.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self.__on_custom_context_menu_requested)
         self.table.doubleClicked.connect(self.__handle_double_click)
-        QShortcut(QtGui.QKeySequence.Copy, self.table, activated=self.__handle_copy_request)
+        # Return does not activate an item view entry on macOS, so it is bound explicitly on every platform
+        self.open_shortcuts = [QShortcut(QtGui.QKeySequence(key), self.table) for key in
+                               (Qt.Key.Key_Return, Qt.Key.Key_Enter)]
+        for shortcut in self.open_shortcuts:
+            shortcut.setContext(Qt.ShortcutContext.WidgetShortcut)
+            shortcut.activated.connect(self.__open_current_entry)
+
+        self.copy_shortcut = QShortcut(QtGui.QKeySequence.StandardKey.Copy, self.table)
+        self.copy_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.copy_shortcut.activated.connect(self.__handle_copy_request)
+
+        self.find_shortcut = QShortcut(QtGui.QKeySequence.StandardKey.Find, self.parent)
+        self.find_shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.find_shortcut.activated.connect(self.__focus_filter)
 
     def __on_custom_context_menu_requested(self):
         selection = self.table.selectedIndexes()
@@ -217,27 +243,27 @@ class FunctionRetrohuntResultView(idaapi.PluginForm):
         has_several_rows_selected = len({cell.row() for cell in selection}) > 1
 
         context_menu = QtWidgets.QMenu(self.table)
+        context_menu.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
-        action_copy = QAction(CONTEXT_MENU_COPY_TEXT, self.table)
-        action_copy.setShortcut(QtGui.QKeySequence.Copy)
+        action_copy = QAction(CONTEXT_MENU_COPY_TEXT, context_menu)
+        action_copy.setShortcut(QtGui.QKeySequence.StandardKey.Copy)
         action_copy.setEnabled(has_selection)
         context_menu.addAction(action_copy)
         action_copy.triggered.connect(self.__handle_copy_request)
 
-        if len(selection) == 1 and selection[0].column() in self.__controller.get_url_columns():
-            action_copy_url = QAction(CONTEXT_MENU_COPY_LINK_TEXT, self.table)
-            action_copy_url.setEnabled(True)
+        url = self.__controller.get_url(selection[0].row(), selection[0].column()) if len(selection) == 1 else None
+        if url:
+            action_copy_url = QAction(CONTEXT_MENU_COPY_LINK_TEXT, context_menu)
             context_menu.addAction(action_copy_url)
-            action_copy_url.triggered.connect(lambda: QtWidgets.QApplication.clipboard().setText(
-                self.__controller.get_url(selection[0].row(), selection[0].column())))
+            action_copy_url.triggered.connect(lambda: QtWidgets.QApplication.clipboard().setText(url))
 
         action_cluster = QAction(get_context_menu_cluster_against_text(has_several_rows_selected),
-                                           self.table)
+                                 context_menu)
         action_cluster.setEnabled(has_selection)
         context_menu.addAction(action_cluster)
         action_cluster.triggered.connect(self.__handle_cluster_analysis_request)
 
-        action_export = QAction(EXPORT_TABLE_TEXT, self.table)
+        action_export = QAction(EXPORT_TABLE_TEXT, context_menu)
         action_export.setEnabled(True)
         context_menu.addAction(action_export)
         action_export.triggered.connect(self.__export_to_csv)
@@ -246,10 +272,15 @@ class FunctionRetrohuntResultView(idaapi.PluginForm):
 
     def __export_to_csv(self) -> None:
         file_name_filter: Tuple[str, str] = QtWidgets.QFileDialog.getSaveFileName(
+            parent=self.table,
             caption=EXPORT_TABLE_CAPTION_TEXT,
             directory=f'{self.__widget_name.replace(" ", "_")}.csv',
             filter=EXPORT_TABLE_FILTER_TEXT)
-        DataExporter.export_to_csv(file_name_filter[0], self.__controller)
+        try:
+            DataExporter.export_to_csv(file_name_filter[0], self.__controller)
+        except OSError as e:
+            _log.error(f'Failed to export the table: {e}')
+            QtWidgets.QMessageBox.warning(self.table, EXPORT_TABLE_CAPTION_TEXT, f'Failed to export the table: {e}')
 
     def __handle_double_click(self, index: QtCore.QModelIndex):
         column = index.column()
@@ -257,6 +288,18 @@ class FunctionRetrohuntResultView(idaapi.PluginForm):
             url = self.__controller.get_url(index.row(), column)
             if url:
                 webbrowser.open(url)
+
+    def __open_current_entry(self):
+        index = self.table.currentIndex()
+        if index.isValid():
+            self.__handle_double_click(index)
+
+    def __focus_filter(self):
+        self.line_edit.setFocus()
+        self.line_edit.selectAll()
+
+    def __apply_text_filter(self):
+        self.model.filter(self.line_edit.text())
 
     def __handle_copy_request(self):
         DataExporter.copy_selection_to_clipboard(sorted(self.table.selectedIndexes()), self.__controller)

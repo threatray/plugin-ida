@@ -1,3 +1,5 @@
+import html
+
 import idaapi
 
 from threatray_ida.constants import OKAY_RESPONSE
@@ -21,7 +23,7 @@ class YesNoBox(idaapi.Form):
             TEXT.format(header=header, form_change='{form_change}', content='{content}'),
             {
                 'form_change': idaapi.Form.FormChangeCb(self.on_form_change),
-                'content': idaapi.Form.StringLabel(text, idaapi.Form.FT_HTML_LABEL),
+                'content': idaapi.Form.StringLabel(html.escape(text).replace('\n', '<br>'), idaapi.Form.FT_HTML_LABEL),
             }
         )
 

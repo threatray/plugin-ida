@@ -159,6 +159,21 @@ class TestFunctionsCodeDetectionsResultController(unittest.TestCase):
             else:
                 assert_that(font, is_(none()))
 
+    def test_sorts_addresses_numerically(self):
+        result = [dataclasses.replace(RESULT[0], address=Address(address)) for address in (0x1000, 0x200, 0xff)]
+        controller = self.__get_controller(result)
+        controller.sort(controller.get_address_column(), False)
+        assert_that([row.display_values[0] for row in controller.data], is_(['0xff', '0x200', '0x1000']))
+
+    def test_get_url_is_none_without_reference_function(self):
+        controller = self.__get_controller(RESULT)
+        column = controller.header.index(REFERENCE_MALWARE_FILE_HEADER)
+        no_reference_rows = [row for row, data in enumerate(controller.data)
+                             if not data.model.code_detections or not data.model.code_detections[0].reference_function]
+        assert_that(len(no_reference_rows) > 0, is_(True))
+        for row in no_reference_rows:
+            assert_that(controller.get_url(row, column), is_(none()))
+
 
 RESULT = [
     FunctionsCodeDetectionsResult(

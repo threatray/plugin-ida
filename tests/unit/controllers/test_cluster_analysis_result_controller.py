@@ -1,4 +1,5 @@
 import unittest
+from dataclasses import replace
 from unittest.mock import MagicMock
 
 from hamcrest import assert_that, is_, none, not_none
@@ -40,11 +41,11 @@ class TestClusterAnalysisResultController(unittest.TestCase):
                            TableRowData(model=RESULT.functions[0],
                                         display_values=('0x0', 'n/a', 0, '1/2 (50.0%)', ''))]
         expected_data_for_export = ('0x1', 'dummy-function', 10, '2/2 (100.0%)',
-                                    f'{"b" * 64}.0x64 [Sim: high (1.00); Conf: high]',
+                                    f'{"b" * 64}.0x64 [Sim: high (1.00), Conf: high]',
                                     '0x2', 'c2-function', 10, '2/2 (100.0%)',
-                                    f'{"c" * 64}.0x64 [Sim: medium (0.80); Conf: low]',
+                                    f'{"c" * 64}.0x64 [Sim: medium (0.80), Conf: low]',
                                     '0x3', 'c2-function', 10, '2/2 (100.0%)',
-                                    f'{"d" * 64}.0x64 [Sim: low (0.50); Conf: medium]',
+                                    f'{"d" * 64}.0x64 [Sim: low (0.50), Conf: medium]',
                                     '0x0', 'n/a', 0, '1/2 (50.0%)', '')
 
         # Test default behavior (shortened hashes)
@@ -505,6 +506,44 @@ class TestClusterAnalysisResultController(unittest.TestCase):
             with self.subTest(test_case['name']):
                 result = controller.get_matches_column_content(test_case['function'])
                 assert_that(result, is_(test_case['expected']))
+
+    def test_data_is_cached_between_changes(self):
+        controller = self.__get_controller()
+        assert_that(controller.data is controller.data, is_(True))
+
+        controller.set_show_unmatched_functions(True)
+        assert_that(len(controller.data), is_(4))
+        controller.sort(0, True)
+        assert_that([row.model.address for row in controller.data], is_([3, 2, 1, 0]))
+        controller.filter('c2-function')
+        assert_that([row.model.address for row in controller.data], is_([3, 2]))
+
+    def test_export_keeps_commas(self):
+        controller = self.__get_controller()
+        column = controller.header.index(MATCHES_HEADER)
+        assert_that(controller.get_data_for_export(0, column),
+                    is_(f'{"b" * 64}.0x64 [Sim: high (1.00), Conf: high]'))
+
+    def test_hyperlink_color_is_resolved_once(self):
+        color_selector_factory = MagicMock()
+        controller = ClusterAnalysisResultController(RESULT, MagicMock(), color_selector_factory)
+        address_column = controller.get_address_column()
+        for _ in range(3):
+            controller.get_text_color(address_column)
+        assert_that(color_selector_factory.build.call_count, is_(1))
+
+    def test_sorts_addresses_numerically(self):
+        functions = tuple(replace(RESULT.functions[1], address=Address(address), uid=f'CFF.{address}')
+                          for address in (0x1000, 0x200, 0xff))
+        controller = ClusterAnalysisResultController(replace(RESULT, functions=functions), MagicMock(), MagicMock())
+        controller.sort(controller.get_address_column(), False)
+        assert_that([row.display_values[0] for row in controller.data], is_(['0xff', '0x200', '0x1000']))
+
+    def test_result_without_files(self):
+        controller = ClusterAnalysisResultController(replace(RESULT, files=()), MagicMock(), MagicMock())
+        assert_that(controller.get_widget_label(), is_('Threatray Find Function Clusters'))
+        assert_that(controller.get_input_file_hashes(), is_(''))
+        assert_that(len(controller.data), is_(3))
 
 
 RESULT = FunctionsDiffResponse(

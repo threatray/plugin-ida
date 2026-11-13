@@ -23,6 +23,7 @@ from threatray_ida.domain.verdict import Verdict
 from threatray_ida.views.controllers.functions_code_detections.functions_code_detections_settings_controller import (
     ALL_CODE_DETECTIONS_CATEGORY_TEXT,
     CHECKBOX_COLUMN,
+    COLOR_COLUMN,
     FunctionsCodeDetectionsSettingsController,
     sort_code_detections,
 )
@@ -319,6 +320,34 @@ class TestFunctionsCodeDetectionsSettingsController(unittest.TestCase):
                 setting = controller._FunctionsCodeDetectionsSettingsController__displayed_data[row].model
                 # The color in the model is stored as BGR int, so 0xccbbaa = 13417386
                 assert_that(setting.color, is_(13417386))
+
+    def test_set_data_accepts_check_state_enum_members_and_ints(self):
+        controller = FunctionsCodeDetectionsSettingsController(settings=SETTINGS_ONLY_CODE_DETECTIONS)
+        index = controller.index(0, CHECKBOX_COLUMN)
+        for value, expected in ((Qt.CheckState.Unchecked, False), (Qt.CheckState.Checked, True),
+                                (int(Qt.CheckState.Unchecked), False), (int(Qt.CheckState.Checked), True)):
+            with self.subTest(value=value):
+                assert_that(controller.setData(index, value, Qt.CheckStateRole), is_(True))
+                assert_that(controller.data(index, Qt.CheckStateRole) == Qt.CheckState.Checked, is_(expected))
+
+    def test_set_color_does_not_reset_the_model(self):
+        controller = FunctionsCodeDetectionsSettingsController(settings=SETTINGS_ONLY_CODE_DETECTIONS)
+        resets = []
+        changes = []
+        controller.modelReset.connect(lambda: resets.append(1))
+        controller.dataChanged.connect(lambda top_left, bottom_right, _roles: changes.append(
+            (top_left.row(), top_left.column(), bottom_right.row(), bottom_right.column())))
+
+        controller.set_color(1, QtGui.QColor('#aabbcc'))
+
+        assert_that(resets, is_([]))
+        assert_that(changes, is_([(1, COLOR_COLUMN, 1, COLOR_COLUMN)]))
+
+    def test_sort_code_detections_with_unknown_category(self):
+        unknown = CodeDetectionSetting(name='Unknown-Category', category='brand-new-category',
+                                       verdict=Verdict.MALICIOUS, prevalence=1)
+        sorted_code_detections = sort_code_detections((unknown, *CODE_DETECTION_SETTINGS))
+        assert_that(sorted_code_detections[-1], is_(unknown))
 
     def test_sort_code_detections(self):
         best_code_detection = CodeDetectionSetting(name='Malware-Setting',

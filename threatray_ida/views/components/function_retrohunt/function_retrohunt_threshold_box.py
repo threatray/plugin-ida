@@ -26,17 +26,23 @@ class FunctionRetrohuntThresholdBox(idaapi.Form):
         )
 
     def on_form_change(self, fid):
+        if fid in (idaapi.CB_CANCEL, idaapi.CB_CLOSE):
+            self.canceled = True
+            return OKAY_RESPONSE
+
         self.EnableField(getattr(self, THRESHOLD_INPUT_ID), self.__controller.is_threshold_editable)
 
+        is_valid = True
         try:
             self.__controller.threshold = self.GetControlValue(getattr(self, THRESHOLD_INPUT_ID))
             self.ShowField(getattr(self, MESSAGE_LABEL_ID), False)
         except ValidationError as e:
+            is_valid = False
             self.SetControlValue(getattr(self, MESSAGE_LABEL_ID), str(e))
             self.ShowField(getattr(self, MESSAGE_LABEL_ID), True)
 
         # we update the threshold in the UI in case a float number was provided or an error has happened
         self.SetControlValue(getattr(self, THRESHOLD_INPUT_ID), self.__controller.threshold)
-        if fid in (idaapi.CB_CANCEL, idaapi.CB_CLOSE):
-            self.canceled = True
+        if fid == idaapi.CB_YES and not is_valid:
+            return 0  # keep the dialog open so that the error is visible
         return OKAY_RESPONSE

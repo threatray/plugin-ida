@@ -10,7 +10,7 @@
     "platforms": ["windows-x86_64", "linux-x86_64", "macos-x86_64", "macos-aarch64"],
     "categories": ["malware-analysis", "integration-with-third-parties-interoperability"],
     "keywords": ["threat-intelligence", "malware", "retrohunt", "code-similarity", "function-clustering"],
-    "pythonDependencies": ["requests>=2.27"],
+    "pythonDependencies": ["requests>=2.33", "keyring>=25"],
     "urls": {
       "repository": "https://github.com/threatray/plugin-ida",
       "homepage": "https://threatray.com"
