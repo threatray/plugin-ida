@@ -24,6 +24,8 @@ and if it doesn't, please [open an issue](https://github.com/threatray/plugin-id
 
 On IDA 9.0 and later, you can install the plugin with the Hex-Rays plugin manager:
 `hcli plugin install threatray`. Then continue with step 3 below.
+If you installed the plugin by hand before, first remove the `threatray_plugin.py` file and the
+`threatray_ida` folder that you copied into IDA's `plugins` directory.
 
 On IDA 8.4 and 8.5, or to install the plugin by hand:
 
