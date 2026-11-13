@@ -1,7 +1,10 @@
+import os
 import sys
 import unittest
 
 import coverage
+
+os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')  # the table model test needs a QApplication
 
 cov = coverage.coverage(
     data_file=None,

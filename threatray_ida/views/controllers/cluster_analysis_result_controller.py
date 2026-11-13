@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from threatray_ida.application.color_selector_factory import ColorSelectorFactory
 from threatray_ida.constants import (
@@ -44,12 +44,16 @@ class ClusterAnalysisResultController(TableController):
         self.__result = result
         self.__mediator = mediator
         self.__color_selector_factory = color_selector_factory
+        self.__unique_matches: Dict[int, Tuple[FunctionMatch, ...]] = {
+            id(function): _get_unique_matches(function) for function in result.functions}
         self.__data = self.__get_data(result)
         self.__displayed_data = self.__data
         self.__table_sorter = PrevalenceScoreTableSorter(self.header.index(PREVALENCE_SCORE_HEADER))
         self.__min_similarity = MatchSimilarity.LOW
         self.__min_confidence = MatchConfidence.LOW
         self.__show_unmatched_functions = False
+        self.__hyperlink_color: Optional[int] = None
+        self.__visible_data = self.__get_visible_data()
 
     @property
     def header(self) -> Tuple[str, ...]:
@@ -57,14 +61,16 @@ class ClusterAnalysisResultController(TableController):
 
     @property
     def data(self) -> List[TableRowData[FunctionWithMatches]]:
+        return self.__visible_data
+
+    def __get_visible_data(self) -> List[TableRowData[FunctionWithMatches]]:
         if not self.__show_unmatched_functions:
             return [d for d in self.__displayed_data if d.model.matches]
         return self.__displayed_data
 
     def get_data_for_export(self, row: int, column: int) -> Union[str, int]:
         if column == self.header.index(MATCHES_HEADER):
-            return (self.get_matches_column_content(self.data[row].model, shorten_hash=False)
-                    .replace(',', ';').replace('\n', '  '))
+            return self.get_matches_column_content(self.data[row].model, shorten_hash=False).replace('\n', '  ')
         if column == self.header.index(QUERY_FUNCTION_NAME_HEADER):
             return self.data[row].model.name or FUNCTION_NAME_PLACEHOLDER
         return self.data[row].display_values[column]
@@ -72,6 +78,7 @@ class ClusterAnalysisResultController(TableController):
     def sort(self, column: int, reverse: bool):
         self.__displayed_data = self.__table_sorter.sort(self.__displayed_data, column, reverse)
         self.__data = self.__table_sorter.sort(self.__data, column, reverse)
+        self.__visible_data = self.__get_visible_data()
 
     def set_min_similarity(self, similarity: MatchSimilarity):
         self.__min_similarity = similarity
@@ -81,6 +88,7 @@ class ClusterAnalysisResultController(TableController):
 
     def set_show_unmatched_functions(self, show_unmatched: bool):
         self.__show_unmatched_functions = show_unmatched
+        self.__visible_data = self.__get_visible_data()
 
     def filter(self, filter_text: str):
         """Filter the displayed data based on the filter text and minimum similarity/confidence values."""
@@ -94,7 +102,7 @@ class ClusterAnalysisResultController(TableController):
                 continue
 
             all_matches_meet_criteria = True
-            for match in _get_unique_matches(function):
+            for match in self.__unique_matches[id(function)]:
                 if self.__min_similarity == MatchSimilarity.LOW:
                     similarity_ok = True
                 elif self.__min_similarity == MatchSimilarity.MEDIUM:
@@ -115,10 +123,13 @@ class ClusterAnalysisResultController(TableController):
 
             if all_matches_meet_criteria:
                 self.__displayed_data.append(row_data)
+        self.__visible_data = self.__get_visible_data()
 
     def get_text_color(self, column: int) -> Optional[int]:
         if column == self.get_address_column():
-            return self.__color_selector_factory.build().select_hyperlink_color_rgb()
+            if self.__hyperlink_color is None:
+                self.__hyperlink_color = self.__color_selector_factory.build().select_hyperlink_color_rgb()
+            return self.__hyperlink_color
         return None
 
     def get_tooltip(self, column: int) -> Optional[str]:
@@ -134,11 +145,12 @@ class ClusterAnalysisResultController(TableController):
     def __get_data(self, result: FunctionsDiffResponse) -> List[TableRowData[FunctionWithMatches]]:
         results = []
         number_of_files = len(result.files)
+        denominator = max(number_of_files, 1)
         for function in sorted(result.functions, key=lambda f: (-f.prevalence, f.address)):
             matches = {match.hash_sha256 for match in function.matches}
             matches.add(result.source_file.hash_sha256)  # we add here the source file
             prevalence = len(matches)
-            prevalence_percentage = round(100 * prevalence / number_of_files, 1)
+            prevalence_percentage = round(100 * prevalence / denominator, 1)
             results.append(TableRowData(
                 model=function,
                 display_values=(
@@ -157,7 +169,7 @@ class ClusterAnalysisResultController(TableController):
         return self.header.index(QUERY_FUNCTION_ADDRESS_HEADER)
 
     def get_matches_column_content(self, function: FunctionWithMatches, shorten_hash: bool = True) -> str:
-        unique_matches = _get_unique_matches(function)
+        unique_matches = self.__unique_matches.get(id(function)) or _get_unique_matches(function)
         entries = [
             (f'{_get_shortened_hash(match.hash_sha256) if shorten_hash else match.hash_sha256}.{hex(match.address)} '
              f'[Sim: {match.similarity.value} ({match.score:.2f}), Conf: {match.confidence.value}]')
@@ -174,6 +186,8 @@ class ClusterAnalysisResultController(TableController):
 
     def get_widget_label(self) -> str:
         hashes = [_get_shortened_hash(file.hash_sha256) for file in self.__result.files]
+        if not hashes:
+            return f'{PLUGIN_NAME} Find Function Clusters'
         return f'{PLUGIN_NAME} Find Function Clusters For {hashes[0]} (+{len(hashes) - 1})'
 
     def call_function_retrohunt(self, indexes: List[TableIndex]):
