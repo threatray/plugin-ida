@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.5] - 2026-11-13
+
+- The plugin can now be installed with `hcli plugin install threatray` on IDA 9.5, and on later IDA releases
+  as soon as hcli supports them: `ida-plugin.json` declares `idaVersions` as `>=9.0` instead of a fixed list.
+  Manual installation on IDA 8.4 and 8.5 is unchanged.
+- The README lists the IDA versions the plugin is tested with (8.4 to 9.4) and how to install it with hcli.
+
 ## [3.0.4] - 2026-11-10
 
 - The settings dialog and README ask for the **instance name** instead of the "realm", and explain where to find it.

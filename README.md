@@ -17,8 +17,17 @@ This plugin integrates Threatray functionalities directly into your IDA Pro envi
 Make sure the file you’ve opened in IDA has already been analyzed by Threatray.
 
 The plugin supports IDA 8.4+ on Windows, Linux, and macOS, and requires Python 3.10+.
+It is tested with IDA 8.4 to 9.4. Newer IDA versions are not tested yet: the plugin may work on them,
+and if it doesn't, please [open an issue](https://github.com/threatray/plugin-ida/issues).
 
 ## Installation
+
+On IDA 9.0 and later, you can install the plugin with the Hex-Rays plugin manager:
+`hcli plugin install threatray`. Then continue with step 3 below.
+If you installed the plugin by hand before, first remove the `threatray_plugin.py` file and the
+`threatray_ida` folder that you copied into IDA's `plugins` directory.
+
+On IDA 8.4 and 8.5, or to install the plugin by hand:
 
 1. Install the Python requirements: `python3 -m pip install -r requirements.txt` (see details below regarding Python interpreter).
 2. Copy `threatray_plugin.py` and the `threatray_ida` folder into the `plugins` directory of your IDA Pro installation.
