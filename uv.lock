@@ -915,7 +915,7 @@ dev = [
     { name = "pyqt5-sip", specifier = "~=12.16" },
     { name = "requests-mock", specifier = "~=1.12" },
     { name = "ruff", specifier = "~=0.8" },
-    { name = "ty", specifier = ">=0.0.90" },
+    { name = "ty", specifier = "==0.0.99" },
     { name = "types-requests", specifier = "~=2.31" },
     { name = "vulture", specifier = "~=2.11" },
 ]

@@ -97,7 +97,7 @@ class TestSettingsProviderWithKeychain(unittest.TestCase):
         self.addCleanup(self.settings_file.unlink, True)
 
     def __provider(self) -> SettingsProviderImplementation:
-        return SettingsProviderImplementation(self.settings_file, self.store)
+        return SettingsProviderImplementation(self.settings_file, self.store)  # ty: ignore[invalid-argument-type]
 
     def __file_content(self) -> Dict[str, str]:
         return json.loads(self.settings_file.read_text(encoding='utf-8'))

@@ -33,13 +33,13 @@ class TestFunctionsDiffResponseConverter(unittest.TestCase):
 
     def test_unknown_match_confidence_raises_api_error(self):
         raw_response = copy.deepcopy(RAW_RESPONSE)
-        raw_response['functions'][0]['matches'][0]['confidence'] = 'brand-new-level'
+        raw_response['functions'][0]['matches'][0]['confidence'] = 'brand-new-level'  # ty: ignore[invalid-argument-type, invalid-assignment, not-subscriptable]
         with self.assertRaises(ThreatrayApiError):
             FunctionsDiffResponseConverter.to_functions_diff_response(raw_response, Address(IMAGE_BASE))
 
     def test_unknown_match_similarity_raises_api_error(self):
         raw_response = copy.deepcopy(RAW_RESPONSE)
-        raw_response['functions'][0]['matches'][0]['similarity'] = 'brand-new-level'
+        raw_response['functions'][0]['matches'][0]['similarity'] = 'brand-new-level'  # ty: ignore[invalid-argument-type, invalid-assignment, not-subscriptable]
         with self.assertRaises(ThreatrayApiError):
             FunctionsDiffResponseConverter.to_functions_diff_response(raw_response, Address(IMAGE_BASE))
 

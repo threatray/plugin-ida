@@ -38,10 +38,10 @@ class TestResponseValidation(unittest.TestCase):
         inner = Inner('a', MatchConfidence.HIGH)
         for field, value in (('address', 'text'), ('address', True), ('address', None), ('score', '1'),
                              ('inner', 'text'), ('items', [inner]), ('items', (inner, None)),
-                             ('items', (Inner(1, MatchConfidence.HIGH),)),
-                             ('items', (Inner('a', 'high'),)),
+                             ('items', (Inner(1, MatchConfidence.HIGH),)),  # ty: ignore[invalid-argument-type]
+                             ('items', (Inner('a', 'high'),)),  # ty: ignore[invalid-argument-type]
                              ('names', ['a', 1])):
             with self.subTest(field=field, value=value):
-                broken = Outer(**{**VALID.__dict__, field: value})
+                broken = Outer(**{**VALID.__dict__, field: value})  # ty: ignore[invalid-argument-type]
                 assert_that(calling(validate_types).with_args(broken), raises(TypeError))
                 assert_that(calling(validate_types).with_args([VALID, broken]), raises(TypeError))

@@ -262,7 +262,7 @@ class TestFunctionsCodeDetectionsService(unittest.TestCase):
                                  color=16777215, xref_color=16777215)}
         assert_that(ida_api.functions, has_length(len(expected_ida_functions)))
         for address, function in ida_api.functions.items():
-            assert_that(address, is_in(expected_ida_functions))
+            assert_that(address, is_in(expected_ida_functions))  # ty: ignore[invalid-argument-type]
             assert_that(function, is_(expected_ida_functions[address]))
 
     def test_workflow_and_manual_color_not_most_prevalent_code_detection(self):

@@ -36,7 +36,7 @@ class TestFunctionsCodeDetectionsResponseConverter(unittest.TestCase):
 
     def test_unknown_family_category_drops_the_family(self):
         raw_response = copy.deepcopy(RAW_RESPONSE)
-        raw_response['functions'][0]['code_detections'][0]['family']['category'] = 'brand-new-category'
+        raw_response['functions'][0]['code_detections'][0]['family']['category'] = 'brand-new-category'  # ty: ignore[invalid-argument-type, invalid-assignment, not-subscriptable]
         response = FunctionsCodeDetectionsResponseConverter.to_function_code_detections_result(
             raw_response, Address(0))
         assert_that(response[0].code_detections[0].family, is_(none()))
@@ -44,7 +44,7 @@ class TestFunctionsCodeDetectionsResponseConverter(unittest.TestCase):
 
     def test_unknown_match_confidence_raises_api_error(self):
         raw_response = copy.deepcopy(RAW_RESPONSE)
-        raw_response['functions'][0]['code_detections'][0]['confidence'] = 'brand-new-level'
+        raw_response['functions'][0]['code_detections'][0]['confidence'] = 'brand-new-level'  # ty: ignore[invalid-assignment, not-subscriptable]
         with self.assertRaises(ThreatrayApiError):
             FunctionsCodeDetectionsResponseConverter.to_function_code_detections_result(raw_response, Address(0))
 

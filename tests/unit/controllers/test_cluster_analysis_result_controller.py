@@ -88,23 +88,23 @@ class TestClusterAnalysisResultController(unittest.TestCase):
         controller.set_show_unmatched_functions(True)
         controller.sort(0, False)
         # pylint: disable=protected-access
-        assert_that(controller.data, is_(controller._ClusterAnalysisResultController__data))
+        assert_that(controller.data, is_(controller._ClusterAnalysisResultController__data))  # ty: ignore[unresolved-attribute]
 
     def test_filter(self):
         controller = self.__get_controller()
         assert_that(len(controller.data), is_(3))
         # pylint: disable=protected-access
-        assert_that(len(controller._ClusterAnalysisResultController__data), is_(4))
+        assert_that(len(controller._ClusterAnalysisResultController__data), is_(4))  # ty: ignore[unresolved-attribute]
 
         controller.filter('unknown-string')
         assert_that(len(controller.data), is_(0))
         # pylint: disable=protected-access
-        assert_that(len(controller._ClusterAnalysisResultController__data), is_(4))
+        assert_that(len(controller._ClusterAnalysisResultController__data), is_(4))  # ty: ignore[unresolved-attribute]
 
         controller.filter('')
         assert_that(len(controller.data), is_(3))
         # pylint: disable=protected-access
-        assert_that(len(controller._ClusterAnalysisResultController__data), is_(4))
+        assert_that(len(controller._ClusterAnalysisResultController__data), is_(4))  # ty: ignore[unresolved-attribute]
 
     def test_filter_by_similarity(self):
         controller = self.__get_controller()
@@ -504,7 +504,7 @@ class TestClusterAnalysisResultController(unittest.TestCase):
 
         for test_case in test_cases:
             with self.subTest(test_case['name']):
-                result = controller.get_matches_column_content(test_case['function'])
+                result = controller.get_matches_column_content(test_case['function'])  # ty: ignore[invalid-argument-type]
                 assert_that(result, is_(test_case['expected']))
 
     def test_data_is_cached_between_changes(self):

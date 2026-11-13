@@ -129,12 +129,12 @@ def fake_request(method, url, params=None, json_data=None, headers=None):
                               for index, address in enumerate(functions)]}
     if url.endswith('/retrohunt/functions'):
         response = copy.deepcopy(test_function_retrohunt_response_converter.RAW_RESPONSE)
-        response['functions'][0]['uid'] = json_data['uids'][0]
+        response['functions'][0]['uid'] = json_data['uids'][0]  # ty: ignore[not-subscriptable]
         return response
     if url.endswith('/functions/diff'):
         response = copy.deepcopy(test_functions_diff_response_converter.RAW_RESPONSE)
         for function, address in zip(response['functions'], functions):
-            function['address'] = address
+            function['address'] = address  # ty: ignore[invalid-assignment]
         return response
     response = copy.deepcopy(test_functions_response_converter.RAW_RESPONSE)
     response['functions'] = [{'address': address, 'uid': f'CFF.{index}', 'size': 16, 'cc': 1}
@@ -149,7 +149,7 @@ def step_fake_api():
     STATE['requests'] = []
     STATE['functions'] = sorted(idautils.Functions())
     STATE['image_base'] = idaapi.get_imagebase()
-    threatray_api_impl.request = fake_request
+    threatray_api_impl.request = fake_request  # ty: ignore[invalid-assignment]
     get_log().addHandler(ErrorLog())
 
     def answer_dialogs():

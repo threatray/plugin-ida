@@ -45,7 +45,7 @@ class TestFunctionRetrohuntResultController(unittest.TestCase):
                 ([0x40000, 0x0], 'Threatray Retrohunt Functions For 0x0 (+1)', '0x0, 0x40000')
         ):
             with self.subTest(selected_function_addresses=selected_function_addresses):
-                controller = self.__get_controller(selected_function_addresses=selected_function_addresses)
+                controller = self.__get_controller(selected_function_addresses=selected_function_addresses)  # ty: ignore[invalid-argument-type]
                 assert_that(controller.widget_label, is_(expected_widget_label))
                 assert_that(controller.selected_function_addresses, is_(expected_addresses))
 
@@ -189,20 +189,20 @@ class TestFunctionRetrohuntResultController(unittest.TestCase):
         result = [RESULT, replace(RESULT, analysis_id='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')]
         controller = self.__get_controller(selected_function_addresses=SELECTED_FUNCTION_ADDRESSES, result=result)
         controller.sort(0, False)
-        assert_that(controller.data, is_(controller._FunctionRetrohuntResultController__data))
+        assert_that(controller.data, is_(controller._FunctionRetrohuntResultController__data))  # ty: ignore[unresolved-attribute]
 
     def test_filter(self):
         controller = self.__get_controller(selected_function_addresses=SELECTED_FUNCTION_ADDRESSES, result=[RESULT])
         assert_that(len(controller.data), is_(1))
-        assert_that(len(controller._FunctionRetrohuntResultController__data), is_(1))
+        assert_that(len(controller._FunctionRetrohuntResultController__data), is_(1))  # ty: ignore[unresolved-attribute]
 
         controller.filter('unknown-string')
         assert_that(len(controller.data), is_(0))
-        assert_that(len(controller._FunctionRetrohuntResultController__data), is_(1))
+        assert_that(len(controller._FunctionRetrohuntResultController__data), is_(1))  # ty: ignore[unresolved-attribute]
 
         controller.filter('')
         assert_that(len(controller.data), is_(1))
-        assert_that(len(controller._FunctionRetrohuntResultController__data), is_(1))
+        assert_that(len(controller._FunctionRetrohuntResultController__data), is_(1))  # ty: ignore[unresolved-attribute]
 
     def test_filter_by_similarity(self):
         results = [RESULT, RESULT_LOW_SIM, RESULT_MEDIUM_SIM]

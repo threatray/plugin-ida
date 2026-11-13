@@ -344,7 +344,7 @@ class TestFunctionsCodeDetectionsSettingsController(unittest.TestCase):
         assert_that(changes, is_([(1, COLOR_COLUMN, 1, COLOR_COLUMN)]))
 
     def test_sort_code_detections_with_unknown_category(self):
-        unknown = CodeDetectionSetting(name='Unknown-Category', category='brand-new-category',
+        unknown = CodeDetectionSetting(name='Unknown-Category', category='brand-new-category',  # ty: ignore[invalid-argument-type]
                                        verdict=Verdict.MALICIOUS, prevalence=1)
         sorted_code_detections = sort_code_detections((unknown, *CODE_DETECTION_SETTINGS))
         assert_that(sorted_code_detections[-1], is_(unknown))

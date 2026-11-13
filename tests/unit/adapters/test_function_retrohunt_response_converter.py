@@ -24,7 +24,7 @@ class TestFunctionRetrohuntResponseConverter(unittest.TestCase):
 
     def test_unknown_match_confidence_raises_api_error(self):
         raw_response = copy.deepcopy(RAW_RESPONSE)
-        raw_response['functions'][0]['matches'][0]['confidence'] = 'brand-new-level'
+        raw_response['functions'][0]['matches'][0]['confidence'] = 'brand-new-level'  # ty: ignore[invalid-argument-type, invalid-assignment, not-subscriptable]
         with self.assertRaises(ThreatrayApiError):
             FunctionRetrohuntResponseConverter.to_code_region_with_uids(raw_response)
 

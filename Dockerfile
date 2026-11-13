@@ -6,7 +6,7 @@ LABEL maintainer="Threatray <operations@threatray.com>"
 
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends python3-distutils libgl1 && \
+    apt-get install -y --no-install-recommends libgl1 && \
     rm -rf /var/lib/apt/lists/*
 
 ENV VIRTUAL_ENV=/app/venv
@@ -22,7 +22,6 @@ COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /uvx /bin/
 
 FROM builder AS lock
 
-COPY --from=builder /app /app
 ENV HOME=/app/threatray-ida
 WORKDIR $HOME
 COPY pyproject.toml $HOME

@@ -38,6 +38,7 @@ from IDA's `plugins` directory.
 ### IDA 8.4 and 8.5, or installing by hand
 
 1. Download the zip of the [latest release](https://github.com/threatray/plugin-ida/releases/latest) and unpack it.
+   It contains the `requirements.txt` used below; a clone of the repository does not.
 2. Install the dependencies **with the Python interpreter your IDA uses**:
 
    ```
