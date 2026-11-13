@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Collection, Optional
+from typing import Callable, Collection, Optional, TypeVar
 
 from threatray_ida.domain.cluster_analysis_settings import ClusterAnalysisSettings
 from threatray_ida.domain.functions_diff_response import FunctionsDiffResponse
+
+T = TypeVar('T')
 
 
 class ClusterAnalysisUIFacade(ABC):
@@ -23,13 +25,12 @@ class ClusterAnalysisUIFacade(ABC):
     def show_message_box(self, header: str, message: str):
         pass
 
-    @abstractmethod
-    def show_wait_box(self, message: str):
-        pass
+    def run_with_wait_box(self, message: str, task: Callable[[], T]) -> T:
+        """Run a task that must not call into IDA while the user waits; raise CanceledError if they cancel.
 
-    @abstractmethod
-    def hide_wait_box(self):
-        pass
+        Not abstract, like progress(): a facade written before these existed keeps working, without a wait box.
+        """
+        return task()
 
     @abstractmethod
     def get_hash_sha256_of_input_file(self) -> str:

@@ -30,3 +30,7 @@ Family.id  # used by internal overlay
 eventFilter
 timerEvent
 addItems
+ConnectionCls  # read by urllib3 (threatray_ida/adapters/threatray_api_impl.py)
+pool_classes_by_scheme  # read by urllib3 (threatray_ida/adapters/threatray_api_impl.py)
+do_GET  # called by http.server (tests/unit/adapters/test_request_cancellation.py)
+log_message  # called by http.server (tests/unit/adapters/test_request_cancellation.py)

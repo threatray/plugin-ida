@@ -1,5 +1,7 @@
 from typing import Optional
 
+import idaapi
+
 from threatray_ida.adapters.ida_api_impl import IdaApiImpl
 from threatray_ida.adapters.threatray_api_impl import ThreatrayApiImpl
 from threatray_ida.application.cluster_analysis_service import ClusterAnalysisService
@@ -51,6 +53,7 @@ class ThreatrayPluginLoader:
     def __init__(self, settings_provider: SettingsProvider):
         self.__internal_plugin_module: Optional[ThreatrayPluginModule] = None
         self.__plugin_module: Optional[ThreatrayPluginModule] = None
+        self.__plugin_icon: Optional[int] = None
         self.__settings_provider = settings_provider
 
     def load(self):
@@ -66,3 +69,14 @@ class ThreatrayPluginLoader:
 
         self.__plugin_module = DefaultThreatrayPluginModule(dependencies)
         self.__plugin_module.load()
+        self.__plugin_icon = dependencies.plugin_icon
+
+    def unload(self):
+        for module in (self.__plugin_module, self.__internal_plugin_module):
+            if module is not None:
+                module.unload()
+        self.__plugin_module = None
+        self.__internal_plugin_module = None
+        if self.__plugin_icon is not None:
+            idaapi.free_custom_icon(self.__plugin_icon)
+            self.__plugin_icon = None

@@ -23,8 +23,7 @@ class ClusterAnalysisHandler(ThreatrayHandler):
         return OKAY_RESPONSE
 
     def update(self, _) -> int:
-        # always on
-        return idaapi.AST_ENABLE_FOR_WIDGET
+        return idaapi.AST_ENABLE_FOR_IDB
 
 
 class ClusterAnalysisHook(idaapi.UI_Hooks):

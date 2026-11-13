@@ -1,5 +1,5 @@
 from dataclasses import replace
-from typing import List, Tuple
+from typing import Callable, List, Tuple, TypeVar
 
 from threatray_ida.application.color_selector_factory import ColorSelectorFactory
 from threatray_ida.application.function_retrohunt_ui_facade import FunctionRetrohuntUIFacade
@@ -28,6 +28,8 @@ from threatray_ida.views.controllers.function_retrohunt_threshold_controller imp
 )
 from threatray_ida.views.ida_api import IdaApi
 from threatray_ida.views.mediator_for_cluster_analysis import MediatorForClusterAnalysis
+
+T = TypeVar('T')
 
 
 class FunctionRetrohuntIDAUIFacade(FunctionRetrohuntUIFacade):
@@ -88,11 +90,8 @@ class FunctionRetrohuntIDAUIFacade(FunctionRetrohuntUIFacade):
         if not accepted:
             raise CanceledError
 
-    def show_wait_box(self, message: str):
-        self.__ida_api.show_wait_box(message)
-
-    def hide_wait_box(self):
-        self.__ida_api.hide_wait_box()
+    def run_with_wait_box(self, message: str, task: Callable[[], T]) -> T:
+        return self.__ida_api.run_with_wait_box(message, task)
 
     def get_hash_sha256_of_input_file(self) -> str:
         return self.__ida_api.get_hash_sha256_of_input_file()
