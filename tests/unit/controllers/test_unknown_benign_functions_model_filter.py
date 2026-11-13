@@ -37,7 +37,7 @@ class TestUnknownBenignFunctionsModelFilter(unittest.TestCase):
 
         for data in (
             TableRowData(model=1, display_values=tuple()),
-            TableRowData(model=1, display_values=(None,)),
+            TableRowData(model=1, display_values=(None,)),  # ty: ignore[invalid-argument-type]
             TableRowData(model=1, display_values=(1,)),
         ):
             with self.subTest(data):

@@ -1,5 +1,5 @@
 from dataclasses import replace
-from typing import Callable, List, Optional
+from typing import Callable, ContextManager, List, Optional, TypeVar
 
 from threatray_ida.application.functions_code_detections_ui_facade import FunctionsCodeDetectionsUIFacade
 from threatray_ida.domain.address import Address
@@ -12,6 +12,8 @@ from threatray_ida.domain.functions_code_detections.functions_code_detections_se
 from threatray_ida.domain.native_function import NativeFunction
 from threatray_ida.views.address_resolver import AddressResolver
 from threatray_ida.views.ida_api import IdaApi
+
+T = TypeVar('T')
 
 
 class MockFunctionsCodeDetectionsUIFacade(FunctionsCodeDetectionsUIFacade):
@@ -45,11 +47,11 @@ class MockFunctionsCodeDetectionsUIFacade(FunctionsCodeDetectionsUIFacade):
     def set_settings(self, settings: FunctionsCodeDetectionsSettings):
         self.__settings = settings
 
-    def show_wait_box(self, message: str):
-        self.__ida_api.show_wait_box(message)
+    def run_with_wait_box(self, message: str, task: Callable[[], T]) -> T:
+        return self.__ida_api.run_with_wait_box(message, task)
 
-    def hide_wait_box(self):
-        self.__ida_api.hide_wait_box()
+    def progress(self, message: str) -> ContextManager[Callable[[], None]]:
+        return self.__ida_api.progress(message)
 
     def get_function(self, address: Address) -> Optional[NativeFunction]:
         return self.__ida_api.get_function(address)
@@ -57,8 +59,8 @@ class MockFunctionsCodeDetectionsUIFacade(FunctionsCodeDetectionsUIFacade):
     def get_function_name(self, address: Address) -> str:
         return self.__ida_api.get_function_name(address)
 
-    def set_function_name(self, address: Address, name: str):
-        self.__ida_api.set_function_name(address, name)
+    def set_function_name(self, address: Address, name: str) -> bool:
+        return self.__ida_api.set_function_name(address, name)
 
     def get_function_comment(self, function: NativeFunction) -> str:
         return self.__ida_api.get_function_comment(function)

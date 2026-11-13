@@ -1,10 +1,12 @@
+import copy
 import unittest
 
-from hamcrest import assert_that, is_
+from hamcrest import assert_that, is_, none, not_none
 
 from threatray_ida.adapters.functions_code_detections_response_converter import (
     FunctionsCodeDetectionsResponseConverter,
 )
+from threatray_ida.adapters.threatray_api_error import ThreatrayApiError
 from threatray_ida.domain.address import Address
 from threatray_ida.domain.address_offset import AddressOffset
 from threatray_ida.domain.functions_code_detections.code_detection import CodeDetection
@@ -31,6 +33,24 @@ class TestFunctionsCodeDetectionsResponseConverter(unittest.TestCase):
         assert_that(response[0].address_offset, is_(AddressOffset(6 - different_image_base)))
         assert_that(response[1].address_offset, is_(AddressOffset(34 - different_image_base)))
         assert_that(response[2].address_offset, is_(AddressOffset(260 - different_image_base)))
+
+    def test_unknown_family_category_drops_the_family(self):
+        raw_response = copy.deepcopy(RAW_RESPONSE)
+        raw_response['functions'][0]['code_detections'][0]['family']['category'] = 'brand-new-category'  # ty: ignore[invalid-argument-type, invalid-assignment, not-subscriptable]
+        response = FunctionsCodeDetectionsResponseConverter.to_function_code_detections_result(
+            raw_response, Address(0))
+        assert_that(response[0].code_detections[0].family, is_(none()))
+        assert_that(response[0].code_detections[0].code_signature, is_(not_none()))
+
+    def test_unknown_match_confidence_raises_api_error(self):
+        raw_response = copy.deepcopy(RAW_RESPONSE)
+        raw_response['functions'][0]['code_detections'][0]['confidence'] = 'brand-new-level'  # ty: ignore[invalid-assignment, not-subscriptable]
+        with self.assertRaises(ThreatrayApiError):
+            FunctionsCodeDetectionsResponseConverter.to_function_code_detections_result(raw_response, Address(0))
+
+    def test_missing_key_raises_api_error(self):
+        with self.assertRaises(ThreatrayApiError):
+            FunctionsCodeDetectionsResponseConverter.to_function_code_detections_result({}, Address(0))
 
 
 PARSED_RESPONSE = [

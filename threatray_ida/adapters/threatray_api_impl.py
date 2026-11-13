@@ -1,12 +1,17 @@
-import copy
-from concurrent.futures import ThreadPoolExecutor
+import socket
+import threading
+import weakref
+from contextlib import suppress
 from dataclasses import asdict, replace
 from functools import lru_cache
 from typing import Callable, Dict, List, Optional, Tuple
 
 import requests
 from requests import HTTPError, RequestException
+from requests.adapters import HTTPAdapter
 from requests.exceptions import SSLError
+from urllib3.connection import HTTPConnection, HTTPSConnection
+from urllib3.connectionpool import HTTPConnectionPool, HTTPSConnectionPool
 
 from threatray_ida.adapters.function_retrohunt_response_converter import FunctionRetrohuntResponseConverter
 from threatray_ida.adapters.functions_code_detections_response_converter import (
@@ -37,6 +42,85 @@ from threatray_ida.logger import get_log
 log = get_log()
 DEFAULT_SIMILARITY_THRESHOLD = 0.5
 DEFAULT_IMAGE_BASE: Address = Address(0)  # If no image base could be derived
+RETROHUNT_CHUNK_SIZE = 100
+PE_HEADER_THREAD_NAME = 'threatray-pe-header'
+# (connect, read): retrohunt and diff queries can legitimately take minutes, an unreachable host should not
+REQUEST_TIMEOUT_SECONDS: Tuple[float, float] = (10, 300)
+
+_connections: 'weakref.WeakSet[HTTPConnection]' = weakref.WeakSet()
+_connections_lock = threading.Lock()
+_cancellations = [0]  # a counter in a list: read by every connection, incremented by cancel_requests()
+
+
+class _Tracked:
+    """Mixin for urllib3 connections: registers them, and refuses to go on with a request canceled meanwhile."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self._cancellations_at_request = _cancellations[0]
+        with _connections_lock:
+            _connections.add(self)  # ty: ignore[invalid-argument-type]
+
+    def request(self, *args, **kwargs):
+        self._cancellations_at_request = _cancellations[0]
+        return super().request(*args, **kwargs)  # ty: ignore[unresolved-attribute]
+
+    def connect(self) -> None:
+        super().connect()  # ty: ignore[unresolved-attribute]
+        # a cancel cannot interrupt connecting; without this check the request would be sent afterwards
+        if _cancellations[0] != self._cancellations_at_request:
+            self.close()  # ty: ignore[unresolved-attribute]
+            raise OSError('The request was canceled.')
+
+
+class _TrackedHTTPConnection(_Tracked, HTTPConnection):
+    pass
+
+
+class _TrackedHTTPSConnection(_Tracked, HTTPSConnection):
+    pass
+
+
+class _TrackedHTTPConnectionPool(HTTPConnectionPool):
+    ConnectionCls = _TrackedHTTPConnection  # ty: ignore[invalid-assignment]
+
+
+class _TrackedHTTPSConnectionPool(HTTPSConnectionPool):
+    ConnectionCls = _TrackedHTTPSConnection  # ty: ignore[invalid-assignment]
+
+
+_POOL_CLASSES = {'http': _TrackedHTTPConnectionPool, 'https': _TrackedHTTPSConnectionPool}
+
+
+class _CancelableAdapter(HTTPAdapter):
+    """Keeps track of the connections it opens, so that a request another thread waits on can be cut short."""
+
+    def init_poolmanager(self, *args, **kwargs) -> None:
+        super().init_poolmanager(*args, **kwargs)
+        self.poolmanager.pool_classes_by_scheme = _POOL_CLASSES
+
+    def proxy_manager_for(self, *args, **kwargs):
+        manager = super().proxy_manager_for(*args, **kwargs)
+        manager.pool_classes_by_scheme = _POOL_CLASSES
+        return manager
+
+
+def cancel_requests() -> None:
+    """Make every request that is waiting for the server fail now instead of when its timeout expires."""
+    _cancellations[0] += 1
+    with _connections_lock:
+        connections = list(_connections)
+    for connection in connections:
+        if connection.sock is not None:
+            # requests has no way to abort a call; shutting the socket down ends its blocking read
+            with suppress(OSError):
+                connection.sock.shutdown(socket.SHUT_RDWR)
+
+
+# one pooled session, so consecutive requests reuse the TLS connection
+_session = requests.Session()
+for _scheme in ('http://', 'https://'):
+    _session.mount(_scheme, _CancelableAdapter())
 
 
 def request(method: str,
@@ -45,12 +129,13 @@ def request(method: str,
             json_data: Optional[Dict] = None,
             headers: Optional[Dict] = None) -> Dict:
     try:
-        resp: requests.Response = requests.request(
+        resp: requests.Response = _session.request(
             method=method,
             url=url,
             params=params,
             json=json_data,
-            headers=headers
+            headers=headers,
+            timeout=REQUEST_TIMEOUT_SECONDS
         )
     except SSLError as e:
         log.debug(f'Failed to query threatray API - err={e} ({type(e)}).')
@@ -69,9 +154,12 @@ def request(method: str,
             raise ThreatrayApiError('Failed to query the threatray API: The API key is invalid. '
                                     'Please update it under Edit > Plugins > Threatray.') from e
         raise ThreatrayApiError('Failed to query the threatray API.', http_error=e) from e
+    except ValueError as e:  # body is not JSON, e.g. a proxy or captive portal answered
+        log.debug(f'resp.status_code={resp.status_code} - err={e}.')
+        raise ThreatrayApiError('Failed to query the threatray API: The response could not be read.') from e
 
 
-@lru_cache(maxsize=None)
+@lru_cache(maxsize=32)
 def _fetch_pe_header(url: str, api_key: str, hash_sha256: str) -> PeHeader:
     try:
         response = request(
@@ -109,6 +197,9 @@ class ThreatrayApiImpl(ThreatrayApi):
     def __get_authorization_header(self) -> Dict:
         return {'Authorization': f'apikey {self.__settings_provider.get_api_key()}'}
 
+    def cancel_requests(self) -> None:
+        cancel_requests()
+
     def get_pe_header(self, hash_sha256: str) -> PeHeader:
         return _fetch_pe_header(
             url=self.__get_api_url(f'files/{hash_sha256}/pe-header'),
@@ -117,14 +208,23 @@ class ThreatrayApiImpl(ThreatrayApi):
         )
 
     def __fetch_with_pe_header(self, hash_sha256: str, fetch_func: Callable[[], Dict]) -> Tuple[Dict, PeHeader]:
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            future_data = executor.submit(fetch_func)
-            future_pe = executor.submit(self.get_pe_header, hash_sha256)
+        pe_headers: List[PeHeader] = []
+        errors: List[BaseException] = []
 
-            data = future_data.result()
-            pe_header = future_pe.result()
+        def fetch_pe_header() -> None:
+            try:
+                pe_headers.append(self.get_pe_header(hash_sha256))
+            except BaseException as e:  # pylint: disable=broad-exception-caught
+                errors.append(e)
 
-        return data, pe_header
+        # daemon, like the thread this runs on: an abandoned request must not hold up IDA's exit
+        pe_header_thread = threading.Thread(target=fetch_pe_header, name=PE_HEADER_THREAD_NAME, daemon=True)
+        pe_header_thread.start()
+        data = fetch_func()
+        pe_header_thread.join()
+        if errors:
+            raise errors[0]
+        return data, pe_headers[0]
 
     def get_functions(self, hash_sha256: str) -> FunctionsResponse:
         def fetch() -> Dict:
@@ -175,7 +275,7 @@ class ThreatrayApiImpl(ThreatrayApi):
     def _merge_retrohunt_by_function_results(retrohunt_result: List[FunctionRetrohuntCodeRegionWithUids],
                                              results: Dict[str, FunctionRetrohuntCodeRegionWithUids]
                                              ) -> Dict[str, FunctionRetrohuntCodeRegionWithUids]:
-        results = copy.deepcopy(results)
+        results = dict(results)
         for cr in retrohunt_result:
             key = f"{cr.analysis_id}_{cr.pid}_{cr.base}_{cr.hash_sha256}"
             if key not in results:
@@ -211,11 +311,13 @@ class ThreatrayApiImpl(ThreatrayApi):
                               scope: str = 'both') -> List[FunctionRetrohuntCodeRegionWithUids]:
         results: Dict[str, FunctionRetrohuntCodeRegionWithUids] = {}
         total_uids = len(functions_uids)
+        if not total_uids:
+            return []
         percentage_threshold = min(float(threshold / total_uids), 1.0)
 
-        while functions_uids:
-            retrohunt_results = self.__retrohunt(functions_uids[:100], percentage_threshold, scope)
-            functions_uids = functions_uids[100:]
+        for start in range(0, total_uids, RETROHUNT_CHUNK_SIZE):
+            retrohunt_results = self.__retrohunt(functions_uids[start:start + RETROHUNT_CHUNK_SIZE],
+                                                 percentage_threshold, scope)
             results = self._merge_retrohunt_by_function_results(retrohunt_results, results)
 
         return [result for result in sorted(results.values(), key=lambda r: -r.nr_of_function_matches)

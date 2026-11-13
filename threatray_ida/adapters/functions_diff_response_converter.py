@@ -1,5 +1,7 @@
 from typing import Dict
 
+from threatray_ida.adapters.response_validation import validate_types
+from threatray_ida.adapters.threatray_api_error import ThreatrayApiError
 from threatray_ida.domain.address import Address
 from threatray_ida.domain.address_offset import AddressOffset
 from threatray_ida.domain.function_match import FunctionMatch
@@ -14,20 +16,29 @@ from threatray_ida.domain.threat import Threat
 class FunctionsDiffResponseConverter:
     @staticmethod
     def to_functions_diff_response(api_response: Dict, image_base: Address) -> FunctionsDiffResponse:
+        try:
+            result = FunctionsDiffResponseConverter._to_functions_diff_response(api_response, image_base)
+            validate_types(result)
+            return result
+        except (KeyError, TypeError, ValueError, AttributeError) as e:
+            raise ThreatrayApiError(f'Unexpected response from the Threatray API: {type(e).__name__}: {e}') from e
+
+    @staticmethod
+    def _to_functions_diff_response(api_response: Dict, image_base: Address) -> FunctionsDiffResponse:
         files = []
         for file in api_response['files']:
             threats = [Threat(label=threat['label'],
                               confidence=threat['confidence'],
-                              scope=threat['scope'])
+                              scope=threat.get('scope'))
                        for threat in file['threats']]
             files.append(FunctionsDiffFile(analysis_id=file['analysis_id'],
                                            base=file['base'],
-                                           function_count=file['function_count'],
+                                           function_count=file.get('function_count'),
                                            hash_md5=file['hash_md5'],
                                            hash_sha1=file['hash_sha1'],
                                            hash_sha256=file['hash_sha256'],
                                            pid=file['pid'],
-                                           size=file['size'],
+                                           size=file.get('size'),
                                            threats=tuple(threats),
                                            verdict=file['verdict']))
 
@@ -36,10 +47,10 @@ class FunctionsDiffResponseConverter:
             matches = tuple(FunctionMatch(address=Address(match['address']),
                                           analysis_id=match['analysis_id'],
                                           base=match['base'],
-                                          cc=match['cc'],
+                                          cc=match.get('cc'),
                                           hash_sha256=match['hash_sha256'],
                                           pid=match['pid'],
-                                          size=match['size'],
+                                          size=match.get('size'),
                                           uid=match['uid'],
                                           score=match['score'],
                                           confidence=MatchConfidence(match['confidence']),
@@ -48,25 +59,25 @@ class FunctionsDiffResponseConverter:
 
             functions.append(FunctionWithMatches(address=Address(function['address']),
                                                  address_offset=AddressOffset(function['address'] - image_base),
-                                                 cc=function['cc'],
-                                                 size=function['size'],
+                                                 cc=function.get('cc'),
+                                                 size=function.get('size'),
                                                  uid=function['uid'],
                                                  prevalence=function['prevalence'],
                                                  matches=matches))
         source_file = api_response['source_file']
         source_file_threats = [Threat(label=threat['label'],
                                       confidence=threat['confidence'],
-                                      scope=threat['scope'])
+                                      scope=threat.get('scope'))
                                for threat in source_file['threats']]
         return FunctionsDiffResponse(files=tuple(files),
                                      functions=tuple(functions),
                                      source_file=FunctionsDiffFile(analysis_id=source_file['analysis_id'],
                                                                    base=source_file['base'],
-                                                                   function_count=source_file['function_count'],
+                                                                   function_count=source_file.get('function_count'),
                                                                    hash_md5=source_file['hash_md5'],
                                                                    hash_sha1=source_file['hash_sha1'],
                                                                    hash_sha256=source_file['hash_sha256'],
                                                                    pid=source_file['pid'],
-                                                                   size=source_file['size'],
+                                                                   size=source_file.get('size'),
                                                                    threats=tuple(source_file_threats),
                                                                    verdict=source_file['verdict']))

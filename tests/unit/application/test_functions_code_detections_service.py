@@ -1,5 +1,6 @@
 import unittest
 from collections import Counter
+from unittest.mock import patch
 
 from hamcrest import assert_that, has_length, is_, is_in
 
@@ -156,6 +157,23 @@ class TestFunctionsCodeDetectionsService(unittest.TestCase):
         expected_str = "\n".join(expected_lines)
         assert_that(result, is_(expected_str))
 
+    def test_workflow_shows_progress_only_for_large_results(self):
+        for minimum_functions, expected_progress in ((len(RESULT) + 1, []),
+                                                     (len(RESULT), ['Applying Attribute Functions results...'])):
+            ida_api = MockIdaApi(functions_code_detections_response=RESULT, imagebase=IMAGEBASE)
+            service = FunctionsCodeDetectionsService(
+                threatray_api=MockThreatrayApi(functions_code_detections_response=RESULT),
+                ui_facade=MockFunctionsCodeDetectionsUIFacade(ida_api),
+                color_selector_factory=ColorSelectorFactory(ida_api)
+            )
+
+            with patch('threatray_ida.application.functions_code_detections_service.PROGRESS_MINIMUM_FUNCTIONS',
+                       minimum_functions):
+                service.workflow()
+
+            assert_that(ida_api.progress_texts, is_(expected_progress))
+            assert_that(ida_api.functions, is_(EXPECTED_FUNCTIONS_WITH_DEFAULT_SETTINGS))
+
     def test_workflow_default(self):
         ida_api = MockIdaApi(functions_code_detections_response=RESULT, imagebase=IMAGEBASE)
         ui_facade = MockFunctionsCodeDetectionsUIFacade(ida_api)
@@ -244,7 +262,7 @@ class TestFunctionsCodeDetectionsService(unittest.TestCase):
                                  color=16777215, xref_color=16777215)}
         assert_that(ida_api.functions, has_length(len(expected_ida_functions)))
         for address, function in ida_api.functions.items():
-            assert_that(address, is_in(expected_ida_functions))
+            assert_that(address, is_in(expected_ida_functions))  # ty: ignore[invalid-argument-type]
             assert_that(function, is_(expected_ida_functions[address]))
 
     def test_workflow_and_manual_color_not_most_prevalent_code_detection(self):
@@ -404,15 +422,32 @@ class TestFunctionsCodeDetectionsService(unittest.TestCase):
     def test_sanitize_for_function_name(self):
         for string, expected_string in (
                 ('AgentTesla', 'AgentTesla'),
-                ('tr_malicious_AgentTesla__', 'tr_malicious_AgentTesla__'),
+                ('tr_malicious_AgentTesla__', 'tr_malicious_AgentTesla_'),
                 ('Aria-body', 'Aria_body'),
                 ('BouncyCastle.Crypto.dll', 'BouncyCastle.Crypto.dll'),
-                ('Delta(Alfa, Bravo, ...)', 'Delta(Alfa__Bravo__...)'),
+                ('Delta(Alfa, Bravo, ...)', 'Delta(Alfa_Bravo_...)'),
                 ('Hectobmp Packer', 'Hectobmp_Packer'),
-                ('LaplasClipper_C++', 'LaplasClipper_C__'),
+                ('LaplasClipper_C++', 'LaplasClipper_C_'),
+                ('a___b', 'a_b'),
         ):
             with self.subTest(string):
                 assert_that(sanitize_for_function_name(string), is_(expected_string))
+
+    def test_get_function_name_removes_an_annotation_written_by_3_0_4_that_contains_the_separator(self):
+        for current_name, code_detections, known_detections, expected_name in (
+                ('tr_malicious_boost__asio__sub_401000', ['malicious_boost::asio'], ['malicious_boost::asio'],
+                 'tr_malicious_boost_asio__sub_401000'),
+                ('tr_malicious_boost__asio__sub_401000', [], ['malicious_boost::asio'], 'tr_sub_401000'),
+                ('tr_malicious_boost__asio____init', ['benign'], ['malicious_boost::asio', 'benign'],
+                 'tr_benign____init'),
+                # without a detection that explains the name, the first separator ends the annotation
+                ('tr_malicious_boost__asio__sub_401000', ['benign'], ['benign'], 'tr_benign__asio__sub_401000'),
+        ):
+            with self.subTest(current_name):
+                # pylint: disable=protected-access
+                assert_that(FunctionsCodeDetectionsService._get_function_name(current_name, code_detections,
+                                                                              known_detections),
+                            is_(expected_name))
 
     def test_get_function_name(self):
         for current_name, code_detections, expected_name in (
@@ -424,6 +459,14 @@ class TestFunctionsCodeDetectionsService(unittest.TestCase):
                 ('tr_sub_401A1D', [], 'tr_sub_401A1D'),
                 ('tr_sub_401A1D', ['malicious_AgentTest'], 'tr_malicious_AgentTest__sub_401A1D'),
                 ('tr_sub_401A1D', ['benign_MSVC'], 'tr_benign_MSVC__sub_401A1D'),
+
+                # original names that contain the separator survive being annotated again
+                ('__libc_csu_init', ['benign'], 'tr_benign____libc_csu_init'),
+                ('tr_benign____libc_csu_init', ['benign'], 'tr_benign____libc_csu_init'),
+                ('tr_benign____libc_csu_init', ['malicious_AgentTest'], 'tr_malicious_AgentTest____libc_csu_init'),
+                ('tr_benign__std__vector__push_back', ['unknown'], 'tr_unknown__std__vector__push_back'),
+                ('tr_benign__sub_401A1D__', ['benign'], 'tr_benign__sub_401A1D__'),
+                ('sub_401A1D', ['malicious_Agent  Test'], 'tr_malicious_Agent_Test__sub_401A1D'),
 
                 (f'sub_401A1D{THREATRAY_FUNCTION_NAME_SUFFIX}', [], f'sub_401A1D{THREATRAY_FUNCTION_NAME_SUFFIX}'),
                 (f'sub_401A1D{THREATRAY_FUNCTION_NAME_SUFFIX}', ['malicious_AgentTest'],

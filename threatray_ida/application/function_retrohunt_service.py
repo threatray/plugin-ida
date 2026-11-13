@@ -1,7 +1,8 @@
 from collections import defaultdict
-from typing import DefaultDict, List
+from typing import Callable, DefaultDict, List, TypeVar
 
 from threatray_ida.adapters.threatray_api_error import ThreatrayApiError
+from threatray_ida.adapters.threatray_plugin_setup_error import ThreatrayPluginSetupError
 from threatray_ida.application.function_retrohunt_ui_facade import FunctionRetrohuntUIFacade
 from threatray_ida.application.threatray_api import ThreatrayApi
 from threatray_ida.application.validation_error import ValidationError
@@ -22,6 +23,7 @@ from threatray_ida.logger import get_log
 from threatray_ida.views.canceled_errors import CanceledError
 
 log = get_log()
+T = TypeVar('T')
 
 FEATURE_NAME: str = 'Retrohunt Functions'
 INPUT_FUNCTION_LIMIT: int = 100
@@ -34,6 +36,13 @@ class FunctionRetrohuntService:
         self.__threatray_api = threatray_api
         self.__ui_facade = ui_facade
         self.__input_function_limit = input_function_limit
+
+    def __fetch(self, message: str, task: Callable[[], T]) -> T:
+        try:
+            return self.__ui_facade.run_with_wait_box(message, task)
+        except CanceledError:
+            self.__threatray_api.cancel_requests()
+            raise
 
     def _show_input_functions_validation_box(self, len_selected_functions: int, len_found_functions: int):
         if len_selected_functions == len_found_functions:
@@ -62,7 +71,8 @@ class FunctionRetrohuntService:
             self.__ui_facade.show_autoanalysis_warning_if_necessary()
 
             hash_sha256 = self.__ui_facade.get_hash_sha256_of_input_file()
-            functions_by_hash: FunctionsResponse = self.__threatray_api.get_functions(hash_sha256)
+            functions_by_hash: FunctionsResponse = self.__fetch(
+                'Getting functions...', lambda: self.__threatray_api.get_functions(hash_sha256))
             matched_functions: List[Function] = self.__ui_facade.match_local_to_backend(
                 selected_addresses, functions_by_hash.functions)
             input_uids = list({f.uid for f in matched_functions})
@@ -79,17 +89,14 @@ class FunctionRetrohuntService:
             log.debug(f'{FEATURE_NAME} with {input_uids_len} functions and a threshold of {threshold}.')
             msg = f'Getting {FEATURE_NAME} results...'
             log.info(msg)
-            self.__ui_facade.show_wait_box(msg)
-            try:
-                result = self.__threatray_api.retrohunt_by_function(input_uids, threshold)
-            finally:
-                self.__ui_facade.hide_wait_box()
+            result = self.__fetch(
+                msg, lambda: self.__threatray_api.retrohunt_by_function(input_uids, threshold))
 
             parsed_result = self.parse_and_filter_result(result, matched_functions, hash_sha256)
             parsed_result = self.__ui_facade.resolve_to_local_addresses(parsed_result)
             self.__ui_facade.show_result(selected_addresses, parsed_result)
 
-        except (ValidationError, ThreatrayApiError) as e:
+        except (ValidationError, ThreatrayApiError, ThreatrayPluginSetupError) as e:
             msg = f'{e}\n{FEATURE_NAME} canceled.'
             log.error(msg.replace('\n', ' '))
             self.__ui_facade.show_message_box('Error', msg)

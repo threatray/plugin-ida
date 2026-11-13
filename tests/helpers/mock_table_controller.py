@@ -16,7 +16,7 @@ class MockTableController(TableController):
 
     @property
     def data(self) -> List[TableRowData[T]]:
-        return self.__data  # type: ignore[return-value]
+        return self.__data  # ty: ignore[invalid-return-type]
 
     def get_data_for_export(self, row: int, column: int) -> Union[str, int]:
         return self.__data[row].display_values[column]

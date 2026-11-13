@@ -1,6 +1,7 @@
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Callable, Dict, Generator, List, Optional, TypeVar
 
 from threatray_ida.constants import WHITE_COLOR
 from threatray_ida.domain.address import Address
@@ -11,6 +12,7 @@ from threatray_ida.domain.native_function import NativeFunction
 from threatray_ida.logger import get_log
 from threatray_ida.views.ida_api import IdaApi
 
+T = TypeVar('T')
 _log = get_log(__name__)
 
 
@@ -33,6 +35,7 @@ class MockIdaApi(IdaApi):
         self.__functions_code_detections_response = functions_code_detections_response
         self.__imagebase = imagebase
         self.__is_dotnet = is_dotnet
+        self.progress_texts: List[str] = []
         self.functions: Dict[Address, MockIdaFunction] = {
             Address(result.address_offset + imagebase): MockIdaFunction(
                 address=result.address_offset + imagebase,
@@ -49,11 +52,13 @@ class MockIdaApi(IdaApi):
     def get_hash_sha256_of_input_file(self) -> str:
         return 'dummy-hash'
 
-    def show_wait_box(self, text: str) -> None:
-        _log.debug(f'show_wait_box: {text}')
+    def run_with_wait_box(self, text: str, task: Callable[[], T]) -> T:
+        return task()
 
-    def hide_wait_box(self) -> None:
-        _log.debug('hide_wait_box')
+    @contextmanager
+    def progress(self, text: str) -> Generator[Callable[[], None], None, None]:
+        self.progress_texts.append(text)
+        yield lambda: None
 
     def get_function(self, address: Address) -> Optional[NativeFunction]:
         return self.functions.get(address)
@@ -61,8 +66,9 @@ class MockIdaApi(IdaApi):
     def get_function_name(self, address: Address) -> str:
         return self.functions[address].name
 
-    def set_function_name(self, address: Address, name: str) -> None:
+    def set_function_name(self, address: Address, name: str) -> bool:
         self.functions[address].name = name
+        return True
 
     def get_function_comment(self, ida_function: NativeFunction) -> str:
         return self.functions[ida_function.address].comment

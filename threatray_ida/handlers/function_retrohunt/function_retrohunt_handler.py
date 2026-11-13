@@ -35,8 +35,8 @@ class FunctionRetrohuntHandler(ThreatrayHandler):
 
 class FunctionRetrohuntHook(idaapi.UI_Hooks):
     def finish_populating_widget_popup(self, widget, popup):
-        tft = idaapi.get_widget_type(widget)
-        if tft != idaapi.BWN_DISASM:
+        # code views get the action of FunctionRetrohuntDisassemblyViewHandler instead
+        if idaapi.get_widget_type(widget) not in (idaapi.BWN_DISASM, idaapi.BWN_PSEUDOCODE):
             idaapi.attach_action_to_popup(
                 widget,
                 popup,

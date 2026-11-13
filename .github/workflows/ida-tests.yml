@@ -1,0 +1,317 @@
+name: IDA integration
+
+# Repository secrets; jobs whose secrets are missing are skipped, as on pull requests from forks.
+#   HCLI_API_KEY, IDA_LICENSE_ID: `hcli auth key create`, `hcli license list`
+#   THREATRAY_INSTANCE, THREATRAY_API_KEY, THREATRAY_SAMPLE_SHA256: for the live API job; a file the instance has analyzed
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  HCLI_VERSION: "0.28.0"
+
+jobs:
+  preflight:
+    name: Check licence availability
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+      live: ${{ steps.decide.outputs.live }}
+    steps:
+      - id: decide
+        env:
+          HAS_SECRETS: ${{ secrets.IDA_LICENSE_ID != '' && secrets.HCLI_API_KEY != '' }}
+          HAS_INSTANCE: ${{ secrets.THREATRAY_INSTANCE != '' && secrets.THREATRAY_API_KEY != '' && secrets.THREATRAY_SAMPLE_SHA256 != '' }}
+        run: |
+          echo "run=$HAS_SECRETS" >> "$GITHUB_OUTPUT"
+          echo "live=$HAS_INSTANCE" >> "$GITHUB_OUTPUT"
+          if [[ "$HAS_SECRETS" != "true" ]]; then
+            echo "::warning::IDA integration skipped: HCLI_API_KEY or IDA_LICENSE_ID is not available to this run"
+          fi
+          if [[ "$HAS_INSTANCE" != "true" ]]; then
+            echo "::warning::Live API checks skipped: no Threatray instance is configured for this run"
+          fi
+
+  live-api:
+    name: Live API
+    needs: preflight
+    if: needs.preflight.outputs.live == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.12"
+      - run: uv sync --locked
+      - name: Install the system libraries PyQt5 needs without a display
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends libegl1 libgl1 libxkbcommon0 libdbus-1-3 fontconfig
+      - name: Run the features against the instance
+        env:
+          THREATRAY_INSTANCE: ${{ secrets.THREATRAY_INSTANCE }}
+          THREATRAY_API_KEY: ${{ secrets.THREATRAY_API_KEY }}
+          THREATRAY_SAMPLE_SHA256: ${{ secrets.THREATRAY_SAMPLE_SHA256 }}
+          QT_QPA_PLATFORM: offscreen
+        run: uv run python -m unittest discover tests/live -t . -v
+
+  linux:
+    name: IDA ${{ matrix.version }} / Linux / headless and GUI
+    needs: preflight
+    if: needs.preflight.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ["9.0", "9.1", "9.2", "9.3", "9.4", "9.5"]
+    steps:
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Install HCLI
+        run: |
+          uv tool install "ida-hcli==${HCLI_VERSION}"
+          uv tool dir --bin >> "$GITHUB_PATH"
+
+      - name: Install GUI runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            libopengl0 libgl1 libegl1 libxkbcommon0 libdbus-1-3 fontconfig \
+            libx11-6 libxcb1 libxcb-cursor0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render0 libxcb-render-util0 libxcb-shape0 libxcb-shm0 \
+            libxcb-icccm4 libxcb-image0 libxcb-xkb1 libxcb-xinerama0 \
+            libxkbcommon-x11-0 libxcb-sync1 libfreetype6 xvfb
+
+      - name: Install IDA
+        env:
+          HCLI_API_KEY: ${{ secrets.HCLI_API_KEY }}
+          IDA_LICENSE_ID: ${{ secrets.IDA_LICENSE_ID }}
+          IDA_VERSION: ${{ matrix.version }}
+        run: |
+          IDA_DIR="$RUNNER_TEMP/ida"
+          hcli ida install -y -d "ida-pro:${IDA_VERSION}:x64linux" -l "$IDA_LICENSE_ID" -i "$IDA_DIR"
+          test -x "$IDA_DIR/ida"
+          echo "IDA_DIR=$IDA_DIR" >> "$GITHUB_ENV"
+          # the accepted EULA is stored in ida.reg; the test profiles start from a copy of it
+          SEED="$RUNNER_TEMP/idausr-seed"
+          mkdir -p "$SEED"
+          for candidate in "$IDA_DIR/ida.reg" "$HOME/.idapro/ida.reg"; do
+            if [[ -f "$candidate" ]]; then cp "$candidate" "$SEED/ida.reg"; break; fi
+          done
+          test -f "$SEED/ida.reg"
+          LICENSE_FILE=$(find "$IDA_DIR" -maxdepth 1 -type f -name '*.hexlic' -print -quit)
+          test -n "$LICENSE_FILE"
+          # IDA 9.0 takes the ":setpref" suffix as part of the file name
+          if [[ "$IDA_VERSION" == "9.0" ]]; then
+            echo "IDA_LICENSE=keyfile=${LICENSE_FILE}" >> "$GITHUB_ENV"
+          else
+            echo "IDA_LICENSE=keyfile=${LICENSE_FILE}:setpref" >> "$GITHUB_ENV"
+          fi
+
+      - name: Install the Python packages IDA needs
+        env:
+          IDA_VERSION: ${{ matrix.version }}
+        run: |
+          uv export --locked --no-dev --no-hashes -o "$RUNNER_TEMP/requirements.txt"
+          uv pip install --target "$RUNNER_TEMP/ida-python" -r "$RUNNER_TEMP/requirements.txt" "PyHamcrest~=2.1"
+          # IDA 9.0 and 9.1 use Qt 5 and do not ship Python bindings for it on Linux; later versions bring PySide6
+          if [[ "$IDA_VERSION" == "9.0" || "$IDA_VERSION" == "9.1" ]]; then
+            uv pip install --target "$RUNNER_TEMP/ida-python" "PyQt5==5.15.11"
+          fi
+          echo "PYTHONPATH=$RUNNER_TEMP/ida-python" >> "$GITHUB_ENV"
+
+      - name: Point IDAPython at the runner's Python
+        env:
+          IDAUSR: ${{ runner.temp }}/idausr-seed
+        run: |
+          IDAPYSWITCH=$(find "$IDA_DIR" -type f -name 'idapyswitch*' -perm -u+x -print -quit)
+          test -n "$IDAPYSWITCH"
+          # the versioned library: idapyswitch rejects the stable-ABI forwarder libpython3.so
+          PYTHON_LIBRARY=$(python -c "import sysconfig, pathlib; print(pathlib.Path(sysconfig.get_config_var('LIBDIR')) / sysconfig.get_config_var('INSTSONAME'))")
+          test -f "$PYTHON_LIBRARY"
+          "$IDAPYSWITCH" --force-path "$PYTHON_LIBRARY"
+
+      - name: Build the test binary
+        run: cc -O0 tests/ida/fixture.c -o "$RUNNER_TEMP/fixture.bin"
+
+      - name: Headless checks
+        run: |
+          python tests/ida/run_ida_check.py --mode headless \
+            --ida-dir "$IDA_DIR" --input "$RUNNER_TEMP/fixture.bin" \
+            --seed-idausr "$RUNNER_TEMP/idausr-seed" --work-dir "$RUNNER_TEMP/ida-check"
+
+      - name: GUI checks
+        env:
+          QT_QPA_PLATFORM: xcb
+        run: |
+          # the headless run stored the licence in its profile; the GUI profiles start from that state
+          cp "$RUNNER_TEMP/ida-check/idausr-headless/ida.reg" "$RUNNER_TEMP/idausr-seed/ida.reg"
+          xvfb-run -a python tests/ida/run_ida_check.py --mode gui \
+            --ida-dir "$IDA_DIR" --input "$RUNNER_TEMP/fixture.bin" \
+            --seed-idausr "$RUNNER_TEMP/idausr-seed" --work-dir "$RUNNER_TEMP/ida-check"
+          xvfb-run -a python tests/ida/run_ida_check.py --mode gui --without-settings \
+            --ida-dir "$IDA_DIR" --input "$RUNNER_TEMP/fixture.bin" \
+            --seed-idausr "$RUNNER_TEMP/idausr-seed" --work-dir "$RUNNER_TEMP/ida-check"
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ida-${{ matrix.version }}-linux-logs
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/ida-check/*.log
+            ${{ runner.temp }}/ida-check/*.json
+            ${{ runner.temp }}/ida-check/*.txt
+
+  other-platforms:
+    name: IDA ${{ matrix.version }} / ${{ matrix.os }}
+    needs: preflight
+    if: needs.preflight.outputs.run == 'true' && github.event_name != 'pull_request'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+        version: ["9.0", "9.1", "9.2", "9.3", "9.4", "9.5"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Install HCLI
+        run: |
+          uv tool install "ida-hcli==${HCLI_VERSION}"
+          uv tool dir --bin >> "$GITHUB_PATH"
+
+      - name: Install IDA
+        env:
+          HCLI_API_KEY: ${{ secrets.HCLI_API_KEY }}
+          IDA_LICENSE_ID: ${{ secrets.IDA_LICENSE_ID }}
+          IDA_VERSION: ${{ matrix.version }}
+        run: |
+          # on macOS the directory has to be an application bundle, or Qt does not find its platform plugin
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            installer="x64win"; IDA_DIR="$RUNNER_TEMP/ida"
+          else
+            installer="armmac"; IDA_DIR="$RUNNER_TEMP/IDA.app"
+          fi
+          hcli ida install -y -d "ida-pro:${IDA_VERSION}:${installer}" -l "$IDA_LICENSE_ID" -i "$IDA_DIR"
+          echo "IDA_DIR=$IDA_DIR" >> "$GITHUB_ENV"
+          SEED="$RUNNER_TEMP/idausr-seed"
+          mkdir -p "$SEED"
+          # macOS keeps the accepted EULA in ida.reg, Windows in the registry
+          if [[ -f "$HOME/.idapro/ida.reg" ]]; then cp "$HOME/.idapro/ida.reg" "$SEED/ida.reg"; fi
+
+      - name: Install the Python packages IDA needs
+        env:
+          IDA_VERSION: ${{ matrix.version }}
+        run: |
+          uv export --locked --no-dev --no-hashes -o "$RUNNER_TEMP/requirements.txt"
+          uv pip install --target "$RUNNER_TEMP/ida-python" -r "$RUNNER_TEMP/requirements.txt" "PyHamcrest~=2.1"
+          # IDA 9.0 and 9.1 use Qt 5; their bindings do not cover the Python used here
+          if [[ "$IDA_VERSION" == "9.0" || "$IDA_VERSION" == "9.1" ]]; then
+            uv pip install --target "$RUNNER_TEMP/ida-python" "PyQt5==5.15.11"
+          fi
+          echo "PYTHONPATH=$RUNNER_TEMP/ida-python" >> "$GITHUB_ENV"
+
+      - name: Point IDAPython at the runner's Python
+        env:
+          IDAUSR: ${{ runner.temp }}/idausr-seed
+        run: |
+          # otherwise IDA picks the newest Python on the machine, which its Qt bindings may not support
+          IDAPYSWITCH=$(find "$IDA_DIR" -type f -name 'idapyswitch*' -print -quit)
+          test -n "$IDAPYSWITCH"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            PYTHON_LIBRARY=$(python -c "import sys, pathlib; print(pathlib.Path(sys.base_prefix) / 'python3.dll')")
+          else
+            # a framework build names its library relative to the framework prefix, a plain build to LIBDIR
+            PYTHON_LIBRARY=$(python - <<'PY'
+          import pathlib
+          import sysconfig
+
+          name = sysconfig.get_config_var('LDLIBRARY')
+          for variable in ('LIBDIR', 'PYTHONFRAMEWORKPREFIX'):
+              candidate = pathlib.Path(sysconfig.get_config_var(variable) or '') / name
+              if candidate.is_file():
+                  print(candidate)
+                  break
+          PY
+            )
+          fi
+          echo "idapyswitch: $IDAPYSWITCH, Python library: $PYTHON_LIBRARY"
+          test -f "$PYTHON_LIBRARY"
+          "$IDAPYSWITCH" --force-path "$PYTHON_LIBRARY"
+
+      - name: Build the test binary
+        run: gcc -O0 tests/ida/fixture.c -o "$RUNNER_TEMP/fixture.bin"
+
+      - name: Headless checks
+        run: |
+          python tests/ida/run_ida_check.py --mode headless \
+            --ida-dir "$IDA_DIR" --input "$RUNNER_TEMP/fixture.bin" \
+            --seed-idausr "$RUNNER_TEMP/idausr-seed" --work-dir "$RUNNER_TEMP/ida-check"
+
+      # On the macOS runners the GUI of IDA 9.0 to 9.4 cannot be driven: 9.0 and 9.1 never get an active
+      # widget, and 9.2 to 9.4 stop inside IDA itself, with no Python running, once a plugin form is shown.
+      - name: GUI checks
+        if: runner.os != 'macOS' || matrix.version == '9.5'
+        run: |
+          if [[ -f "$RUNNER_TEMP/ida-check/idausr-headless/ida.reg" ]]; then
+            cp "$RUNNER_TEMP/ida-check/idausr-headless/ida.reg" "$RUNNER_TEMP/idausr-seed/ida.reg"
+          fi
+          python tests/ida/run_ida_check.py --mode gui \
+            --ida-dir "$IDA_DIR" --input "$RUNNER_TEMP/fixture.bin" \
+            --seed-idausr "$RUNNER_TEMP/idausr-seed" --work-dir "$RUNNER_TEMP/ida-check"
+          python tests/ida/run_ida_check.py --mode gui --without-settings \
+            --ida-dir "$IDA_DIR" --input "$RUNNER_TEMP/fixture.bin" \
+            --seed-idausr "$RUNNER_TEMP/idausr-seed" --work-dir "$RUNNER_TEMP/ida-check"
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ida-${{ matrix.version }}-${{ matrix.os }}-logs
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/ida-check/*.log
+            ${{ runner.temp }}/ida-check/*.json
+            ${{ runner.temp }}/ida-check/*.txt

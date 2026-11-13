@@ -3,6 +3,7 @@ import unittest
 from hamcrest import assert_that, is_
 
 from threatray_ida.adapters.functions_response_converter import FunctionsResponseConverter
+from threatray_ida.adapters.threatray_api_error import ThreatrayApiError
 from threatray_ida.domain.address import Address
 from threatray_ida.domain.address_offset import AddressOffset
 from threatray_ida.domain.function import Function
@@ -28,6 +29,10 @@ class TestFunctionsResponseConverter(unittest.TestCase):
         assert_that(response.functions[0].address_offset, is_(AddressOffset(0x401000 - 0x401000)))
         assert_that(response.functions[1].address_offset, is_(AddressOffset(0x401080 - 0x401000)))
         assert_that(response.base, is_(BASE))
+
+    def test_missing_key_raises_api_error(self):
+        with self.assertRaises(ThreatrayApiError):
+            FunctionsResponseConverter.to_functions_response({'functions': []}, Address(BASE))
 
 
 BASE = 0x400000

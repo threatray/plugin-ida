@@ -17,7 +17,7 @@ WHITE_COLOR: int = 0xFFFFFF
 DELIMITER: str = '_'
 PREVALENCE_SCORE_SEPARATOR: str = '/'
 
-MONOSPACE_FONT: str = 'Monospace'
+MONOSPACE_FONT: str = 'Monospace'  # token that TableModel resolves to the platform's fixed-pitch font
 
 SHORTENED_ANALYSIS_ID_LENGTH: int = 8
 SHORTENED_HASH_PREFIX_AND_SUFFIX_LENGTH: int = 6

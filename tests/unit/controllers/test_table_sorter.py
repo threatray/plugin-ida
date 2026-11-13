@@ -76,3 +76,17 @@ class TestTableSorter(unittest.TestCase):
         ]
         sorted_data = sorter.sort(data, index, True)
         assert_that(sorted_data, is_(expected_order))
+
+    def test_default_table_sorter_sorts_hex_addresses_numerically(self):
+        data = [TableRowData(model=i, display_values=(value,)) for i, value in enumerate(('0x1000', '0x200', '0xff'))]
+        ascending = DefaultTableSorter().sort(data, 0, False)
+        assert_that([row.display_values[0] for row in ascending], is_(['0xff', '0x200', '0x1000']))
+        descending = DefaultTableSorter().sort(data, 0, True)
+        assert_that([row.display_values[0] for row in descending], is_(['0x1000', '0x200', '0xff']))
+
+    def test_default_table_sorter_sorts_numbers_and_text(self):
+        numbers = [TableRowData(model=i, display_values=(value,)) for i, value in enumerate((10, 9, 100))]
+        assert_that([r.display_values[0] for r in DefaultTableSorter().sort(numbers, 0, False)], is_([9, 10, 100]))
+        text = [TableRowData(model=i, display_values=(value,)) for i, value in enumerate(('b', '0x10', 'a'))]
+        assert_that([r.display_values[0] for r in DefaultTableSorter().sort(text, 0, False)],
+                    is_(['0x10', 'a', 'b']))

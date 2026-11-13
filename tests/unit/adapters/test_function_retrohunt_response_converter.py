@@ -1,8 +1,10 @@
+import copy
 import unittest
 
 from hamcrest import assert_that, is_
 
 from threatray_ida.adapters.function_retrohunt_response_converter import FunctionRetrohuntResponseConverter
+from threatray_ida.adapters.threatray_api_error import ThreatrayApiError
 from threatray_ida.domain.address import Address
 from threatray_ida.domain.function_match import FunctionMatch
 from threatray_ida.domain.function_retrohunt.function_retrohunt_code_region_with_uids import (
@@ -19,6 +21,16 @@ class TestFunctionRetrohuntResponseConverter(unittest.TestCase):
     def test_to_code_region_with_uids(self):
         response = FunctionRetrohuntResponseConverter.to_code_region_with_uids(RAW_RESPONSE)
         assert_that(response, is_(PARSED_RESPONSE))
+
+    def test_unknown_match_confidence_raises_api_error(self):
+        raw_response = copy.deepcopy(RAW_RESPONSE)
+        raw_response['functions'][0]['matches'][0]['confidence'] = 'brand-new-level'  # ty: ignore[invalid-argument-type, invalid-assignment, not-subscriptable]
+        with self.assertRaises(ThreatrayApiError):
+            FunctionRetrohuntResponseConverter.to_code_region_with_uids(raw_response)
+
+    def test_missing_key_raises_api_error(self):
+        with self.assertRaises(ThreatrayApiError):
+            FunctionRetrohuntResponseConverter.to_code_region_with_uids({})
 
 
 PARSED_RESPONSE = [
