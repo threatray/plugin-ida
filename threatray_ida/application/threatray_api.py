@@ -14,6 +14,9 @@ from threatray_ida.domain.pe_header import PeHeader
 
 
 class ThreatrayApi(ABC):
+    def cancel_requests(self) -> None:
+        """Abort requests that are still waiting for an answer. Optional: they time out otherwise."""
+
     @abstractmethod
     def get_pe_header(self, hash_sha256: str) -> PeHeader:
         pass

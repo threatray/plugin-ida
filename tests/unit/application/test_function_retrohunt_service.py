@@ -56,7 +56,7 @@ class TestFunctionRetrohuntService(unittest.TestCase):
             with self.subTest(expected_text=expected_text):
                 service._show_input_functions_validation_box(selected_functions, input_functions)
                 if expected_text:
-                    assert_that(ui_facade.input_function_validation_box_text, contains_string(expected_text))
+                    assert_that(ui_facade.input_function_validation_box_text, contains_string(expected_text))  # ty: ignore[no-matching-overload]
                 else:
                     assert_that(ui_facade.input_function_validation_box_text, is_(expected_text))
 

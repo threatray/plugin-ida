@@ -1,11 +1,18 @@
 import unittest
+from unittest.mock import MagicMock
 
 import requests_mock
 from hamcrest import assert_that, calling, is_, raises
 
 from tests.helpers.helper import create_mock_function_match
 from threatray_ida.adapters.threatray_api_error import ThreatrayApiError
-from threatray_ida.adapters.threatray_api_impl import ThreatrayApiImpl, _fetch_pe_header
+from threatray_ida.adapters.threatray_api_impl import (
+    REQUEST_TIMEOUT_SECONDS,
+    ThreatrayApiImpl,
+    _fetch_pe_header,
+    request,
+)
+from threatray_ida.application.settings_provider import SettingsProvider
 from threatray_ida.domain.address import Address
 from threatray_ida.domain.function_retrohunt.function_retrohunt_code_region_with_uids import (
     FunctionRetrohuntCodeRegionWithUids,
@@ -68,6 +75,37 @@ class TestThreatrayApi(unittest.TestCase):
 
             assert_that(m.call_count, is_(2))
             assert_that(result, is_(PeHeader(image_base=Address(0x10000))))
+
+    def test_request_sets_a_timeout(self):
+        url: str = 'https://api.threatray.com/v1/submissions'
+        with requests_mock.Mocker() as m:
+            m.get(url, json={})
+
+            request(method='GET', url=url)
+
+            assert_that(m.last_request.timeout, is_(REQUEST_TIMEOUT_SECONDS))
+
+    def test_request_with_a_response_that_is_not_json_raises_api_error(self):
+        url: str = 'https://api.threatray.com/v1/submissions'
+        with requests_mock.Mocker() as m:
+            m.get(url, text='<html>Sign in to the network</html>')
+
+            assert_that(calling(request).with_args(method='GET', url=url), raises(ThreatrayApiError))
+
+    def test_retrohunt_without_functions_returns_no_results_and_sends_no_request(self):
+        settings_provider = MagicMock(spec=SettingsProvider)
+        settings_provider.get_realm.return_value = 'dummy'
+        with requests_mock.Mocker() as m:
+            assert_that(ThreatrayApiImpl(settings_provider).retrohunt_by_function([], threshold=1), is_([]))
+            assert_that(m.call_count, is_(0))
+
+    def test_merge_retrohunt_by_function_results_does_not_modify_its_input(self):
+        results = ThreatrayApiImpl._merge_retrohunt_by_function_results(RETROHUNT_BY_FUNCTION_RESULT, {})
+        snapshot = dict(results)
+
+        ThreatrayApiImpl._merge_retrohunt_by_function_results(RETROHUNT_BY_FUNCTION_RESULT_2, results)
+
+        assert_that(results, is_(snapshot))
 
     def test_merge_retrohunt_by_function_results(self):
         results = {}

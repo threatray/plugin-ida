@@ -30,7 +30,7 @@ services:
 
   type-check-latest:
     <<: *threatray-ida
-    command: /app/venv/bin/python3 -m mypy /app/threatray-ida
+    command: /app/venv/bin/ty check /app/threatray-ida
 
   ruff-latest:
     <<: *threatray-ida

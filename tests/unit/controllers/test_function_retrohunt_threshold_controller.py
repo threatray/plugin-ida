@@ -57,7 +57,7 @@ class TestFunctionRetrohuntThresholdController(unittest.TestCase):
             with self.subTest(selected_threshold):
                 controller = FunctionRetrohuntThresholdController(number_of_input_functions, number_of_input_functions)
                 try:
-                    controller.threshold = selected_threshold
+                    controller.threshold = selected_threshold  # ty: ignore[invalid-assignment]
                     got_validation_error = False
                 except ValidationError:
                     got_validation_error = True

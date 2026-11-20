@@ -1,3 +1,5 @@
+import html
+
 import idaapi
 
 TEXT = """BUTTON YES* OK
@@ -15,7 +17,7 @@ class MessageBox(idaapi.Form):
             self,
             TEXT.format(header=header, content='{content}'),
             {
-                'content': idaapi.Form.StringLabel(text, idaapi.Form.FT_HTML_LABEL),
+                'content': idaapi.Form.StringLabel(html.escape(text).replace('\n', '<br>'), idaapi.Form.FT_HTML_LABEL),
             }
         )
 

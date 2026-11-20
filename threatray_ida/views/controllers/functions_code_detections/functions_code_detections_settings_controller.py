@@ -39,13 +39,14 @@ FAMILY_CATEGORY_PRIORITY: Dict[Optional[FamilyCategory], int] = {
 CATEGORY_FILTER_PRIORITY: Dict[Optional[Union[FamilyCategory, str]], int] = {ALL_CODE_DETECTIONS_CATEGORY_TEXT: 0,
                                                                              UNKNOWN_FUNCTIONS_TEXT: 100,
                                                                              BENIGN_FUNCTIONS_TEXT: 99}
-CATEGORY_FILTER_PRIORITY.update(FAMILY_CATEGORY_PRIORITY)  # type: ignore[arg-type]
+CATEGORY_FILTER_PRIORITY.update(FAMILY_CATEGORY_PRIORITY)  # ty: ignore[no-matching-overload]
 
 
 def sort_code_detections(code_detections: Tuple[CodeDetectionSetting, ...]) -> List[CodeDetectionSetting]:
     return sorted(
         code_detections,
-        key=lambda cd: (FAMILY_CATEGORY_PRIORITY[cd.category], -cd.prevalence, cd.name.lower())
+        key=lambda cd: (FAMILY_CATEGORY_PRIORITY.get(cd.category, FAMILY_CATEGORY_PRIORITY[None]),
+                        -cd.prevalence, cd.name.lower())
     )
 
 
@@ -164,8 +165,8 @@ class FunctionsCodeDetectionsSettingsController(QtCore.QAbstractTableModel):
         row = index.row()
 
         if role == Qt.CheckStateRole and column == CHECKBOX_COLUMN:
-            return (Qt.Checked if self.__displayed_data[row].model.enabled
-                    else Qt.Unchecked)
+            return (Qt.CheckState.Checked if self.__displayed_data[row].model.enabled
+                    else Qt.CheckState.Unchecked)
         elif role == QtCore.Qt.DisplayRole:
             return self.__displayed_data[row].display_values[column]
         elif role == Qt.BackgroundRole and column == COLOR_COLUMN:
@@ -180,10 +181,10 @@ class FunctionsCodeDetectionsSettingsController(QtCore.QAbstractTableModel):
         row = index.row()
 
         if role == Qt.CheckStateRole and index.column() == CHECKBOX_COLUMN:
-            new_value = bool(value)
+            new_value = Qt.CheckState(value) != Qt.CheckState.Unchecked
             model = self.__displayed_data[row].model
             if model.enabled != new_value:
-                self.__displayed_data[row].model = replace(model, enabled=bool(value))
+                self.__displayed_data[row].model = replace(model, enabled=new_value)
                 self.dataChanged.emit(index, index, [role])  # send signal to view
             return True
         return False
@@ -207,7 +208,7 @@ class FunctionsCodeDetectionsSettingsController(QtCore.QAbstractTableModel):
         return QtGui.QColor(self.__displayed_data[row].model.color_rgb)
 
     def set_color(self, row: int, color: QtGui.QColor):
-        self.beginResetModel()
         color_value = convert_hex_rgb_to_int_bgr(color.name()[1:])  # color.name() returns '#000000'
         self.__displayed_data[row].model = replace(self.__displayed_data[row].model, color=color_value)
-        self.endResetModel()
+        index = self.index(row, COLOR_COLUMN)
+        self.dataChanged.emit(index, index, [Qt.ItemDataRole.BackgroundRole])

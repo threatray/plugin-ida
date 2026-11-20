@@ -1,7 +1,8 @@
 from dataclasses import replace
-from typing import Collection, Optional
+from typing import Callable, Collection, Optional, TypeVar
 
 from threatray_ida.adapters.threatray_api_error import ThreatrayApiError
+from threatray_ida.adapters.threatray_plugin_setup_error import ThreatrayPluginSetupError
 from threatray_ida.application.cluster_analysis_ui_facade import ClusterAnalysisUIFacade
 from threatray_ida.application.threatray_api import ThreatrayApi
 from threatray_ida.application.validation_error import ValidationError
@@ -11,6 +12,7 @@ from threatray_ida.logger import get_log
 from threatray_ida.views.canceled_errors import CanceledError
 
 log = get_log()
+T = TypeVar('T')
 
 FEATURE_NAME: str = 'Find Function Clusters'
 
@@ -21,14 +23,18 @@ class ClusterAnalysisService:
         self.__threatray_api = threatray_api
         self.__ui_facade = ui_facade
 
+    def __fetch(self, message: str, task: Callable[[], T]) -> T:
+        try:
+            return self.__ui_facade.run_with_wait_box(message, task)
+        except CanceledError:
+            self.__threatray_api.cancel_requests()
+            raise
+
     def __query_api(self, hash_sha256: str, settings: ClusterAnalysisSettings) -> FunctionsDiffResponse:
         log.debug(f'Perform find function clusters with hash_sha256={hash_sha256} and settings={settings}')
-        self.__ui_facade.show_wait_box('Finding Function Clusters')
-        try:
-            result = self.__threatray_api.functions_diff(source_file=hash_sha256, settings=settings)
-        finally:
-            self.__ui_facade.hide_wait_box()
-        return result
+        return self.__fetch(
+            'Finding Function Clusters...',
+            lambda: self.__threatray_api.functions_diff(source_file=hash_sha256, settings=settings))
 
     def __check_for_retry(self, settings: ClusterAnalysisSettings, result: FunctionsDiffResponse) -> bool:
         no_non_benign_query_functions_found = settings.with_benign_code is False and not result.functions
@@ -55,7 +61,7 @@ class ClusterAnalysisService:
                 result = self.__query_api(hash_sha256, settings)
             result = self.__ui_facade.resolve_to_local_addresses(result)
             self.__ui_facade.show_result(result=result)
-        except (ValidationError, ThreatrayApiError) as e:
+        except (ValidationError, ThreatrayApiError, ThreatrayPluginSetupError) as e:
             msg = f'{e}\n{FEATURE_NAME} canceled.'
             log.error(msg.replace('\n', ' '))
             self.__ui_facade.show_message_box('Error', msg)
