@@ -1,4 +1,4 @@
-from threatray_ida.qt_compat import QDialog, QDialogButtonBox, Qt, QtCore, QtWidgets
+from threatray_ida.qt_compat import QDialog, QDialogButtonBox, Qt, QtCore, QtWidgets, get_dialog_parent
 from threatray_ida.views.controllers.functions_code_detections.functions_code_detections_settings_controller import (
     COLOR_COLUMN,
     FunctionsCodeDetectionsSettingsController,
@@ -8,7 +8,7 @@ from threatray_ida.views.controllers.functions_code_detections.functions_code_de
 class FunctionsCodeDetectionsSettingsBox(QDialog):
 
     def __init__(self, controller: FunctionsCodeDetectionsSettingsController, parent=None):
-        super().__init__(parent)
+        super().__init__(parent or get_dialog_parent())
         self.canceled: bool = False
         self.__controller = controller
         self.__setup_ui()
@@ -83,7 +83,7 @@ class FunctionsCodeDetectionsSettingsBox(QDialog):
 
     def __table_clicked(self, index: QtCore.QModelIndex):
         if index.column() == COLOR_COLUMN:
-            color = QtWidgets.QColorDialog.getColor(initial=self.__controller.get_color_rgb(index.row()))
+            color = QtWidgets.QColorDialog.getColor(initial=self.__controller.get_color_rgb(index.row()), parent=self)
             if color.isValid():  # is False if dialog was canceled
                 self.__controller.set_color(index.row(), color)
 

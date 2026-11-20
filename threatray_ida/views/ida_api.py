@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
+from typing import Callable, ContextManager, Optional, TypeVar
 
 from threatray_ida.domain.address import Address
 from threatray_ida.domain.native_function import NativeFunction
+
+T = TypeVar('T')
 
 
 class IdaApi(ABC):
@@ -16,12 +18,15 @@ class IdaApi(ABC):
         pass
 
     @abstractmethod
-    def show_wait_box(self, text: str) -> None:
-        pass
+    def run_with_wait_box(self, text: str, task: Callable[[], T]) -> T:
+        """Run task off the UI thread behind a cancelable wait box. The task must not call into IDA.
+
+        Raises CanceledError if the user cancels; the task's own exception otherwise.
+        """
 
     @abstractmethod
-    def hide_wait_box(self) -> None:
-        pass
+    def progress(self, text: str) -> ContextManager[Callable[[], None]]:
+        """Show a wait box around long work on the UI thread; call the yielded function regularly during it."""
 
     @abstractmethod
     def get_function(self, address: Address) -> Optional[NativeFunction]:
@@ -32,7 +37,7 @@ class IdaApi(ABC):
         pass
 
     @abstractmethod
-    def set_function_name(self, address: Address, name: str) -> None:
+    def set_function_name(self, address: Address, name: str) -> bool:
         pass
 
     @abstractmethod

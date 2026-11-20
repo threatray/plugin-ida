@@ -25,3 +25,6 @@ class ThreatrayHandler(idaapi.action_handler_t):
             self._icon
         )
         idaapi.register_action(action_desc)
+
+    def unregister(self):
+        idaapi.unregister_action(self._action_name)

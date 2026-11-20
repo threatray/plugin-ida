@@ -19,7 +19,7 @@ class CodeDetection:
     score: float
     confidence: MatchConfidence
     similarity: MatchSimilarity
-    overlap: float
+    overlap: Optional[float]  # not used by the plugin
     reference_function: Optional[CodeDetectionsFunction]
 
     def get_name(self):

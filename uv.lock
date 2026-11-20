@@ -2,20 +2,42 @@
 #    uv pip compile pyproject.toml --extra dev --universal -o uv.lock
 certifi==2026.5.20
     # via requests
+cffi==2.1.1 ; platform_python_implementation != 'PyPy' and sys_platform == 'linux'
+    # via cryptography
 charset-normalizer==3.4.7
     # via requests
 coverage==7.14.0
     # via threatray-ida (pyproject.toml)
+cryptography==50.0.2 ; sys_platform == 'linux'
+    # via secretstorage
 idna==3.16
     # via requests
+jaraco-classes==3.4.0
+    # via keyring
+jaraco-context==6.1.2
+    # via keyring
+jaraco-functools==4.6.0
+    # via keyring
+jeepney==0.9.0 ; sys_platform == 'linux'
+    # via
+    #   keyring
+    #   secretstorage
+keyring==25.7.0
+    # via threatray-ida (pyproject.toml)
 librt==0.11.0 ; platform_python_implementation != 'PyPy'
     # via mypy
+more-itertools==11.2.1
+    # via
+    #   jaraco-classes
+    #   jaraco-functools
 mypy==1.20.2
     # via threatray-ida (pyproject.toml)
 mypy-extensions==1.1.0
     # via mypy
 pathspec==1.1.1
     # via mypy
+pycparser==3.12 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy' and sys_platform == 'linux'
+    # via cffi
 pyhamcrest==2.1.0
     # via threatray-ida (pyproject.toml)
 pyqt5==5.15.11
@@ -26,6 +48,8 @@ pyqt5-sip==12.18.0
     # via
     #   threatray-ida (pyproject.toml)
     #   pyqt5
+pywin32-ctypes==0.2.3 ; sys_platform == 'win32'
+    # via keyring
 requests==2.34.2
     # via
     #   threatray-ida (pyproject.toml)
@@ -34,6 +58,8 @@ requests-mock==1.12.1
     # via threatray-ida (pyproject.toml)
 ruff==0.15.14
     # via threatray-ida (pyproject.toml)
+secretstorage==3.5.0 ; sys_platform == 'linux'
+    # via keyring
 tomli==2.4.1 ; python_full_version < '3.11'
     # via
     #   mypy

@@ -1,5 +1,5 @@
 from dataclasses import replace
-from typing import Collection, List, Optional
+from typing import Callable, Collection, List, Optional, TypeVar
 
 from threatray_ida.application.cluster_analysis_ui_facade import ClusterAnalysisUIFacade
 from threatray_ida.application.color_selector_factory import ColorSelectorFactory
@@ -23,6 +23,8 @@ from threatray_ida.views.controllers.cluster_analysis_settings_controller import
 )
 from threatray_ida.views.ida_api import IdaApi
 from threatray_ida.views.mediator_for_function_retrohunt import MediatorForFunctionRetrohunt
+
+T = TypeVar('T')
 
 
 class ClusterAnalysisIDAUIFacade(ClusterAnalysisUIFacade):
@@ -66,11 +68,8 @@ class ClusterAnalysisIDAUIFacade(ClusterAnalysisUIFacade):
     def show_message_box(self, header: str, message: str):
         MessageBox.create(header, message)
 
-    def show_wait_box(self, message: str):
-        self.__ida_api.show_wait_box(message)
-
-    def hide_wait_box(self):
-        self.__ida_api.hide_wait_box()
+    def run_with_wait_box(self, message: str, task: Callable[[], T]) -> T:
+        return self.__ida_api.run_with_wait_box(message, task)
 
     def get_hash_sha256_of_input_file(self) -> str:
         return self.__ida_api.get_hash_sha256_of_input_file()

@@ -1,8 +1,9 @@
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass(frozen=True)
 class CodeSignature:
-    id: int
+    id: Optional[int]  # not used by the plugin, like scope
     name: str
-    scope: str
+    scope: Optional[str]

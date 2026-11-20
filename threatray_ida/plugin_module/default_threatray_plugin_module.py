@@ -1,3 +1,7 @@
+from typing import List, Tuple
+
+import idaapi
+
 from threatray_ida.handlers.cluster_analysis_handler import ClusterAnalysisHandler, ClusterAnalysisHook
 from threatray_ida.handlers.function_retrohunt.function_retrohunt_disassembly_view_handler import (
     FunctionRetrohuntDisassemblyViewHandler,
@@ -11,6 +15,7 @@ from threatray_ida.handlers.functions_code_detections_handler import (
     FunctionsCodeDetectionsHandler,
     FunctionsCodeDetectionsHook,
 )
+from threatray_ida.handlers.threatray_handler import ThreatrayHandler
 from threatray_ida.plugin_dependencies import PluginDependencies
 from threatray_ida.plugin_module.threatray_plugin_module import ThreatrayPluginModule
 
@@ -18,25 +23,27 @@ from threatray_ida.plugin_module.threatray_plugin_module import ThreatrayPluginM
 class DefaultThreatrayPluginModule(ThreatrayPluginModule):
     def __init__(self, dependencies: PluginDependencies):
         self.__dependencies = dependencies
-        self._functions_code_detections_hook = FunctionsCodeDetectionsHook()
-        self._function_retrohunt_hook = FunctionRetrohuntHook()
-        self._function_retrohunt_disassembly_view_hook = FunctionRetrohuntDisassemblyViewHook()
-        self._cluster_analysis_hook = ClusterAnalysisHook()
+        self.__registered: List[Tuple[ThreatrayHandler, idaapi.UI_Hooks]] = []
 
     def load(self):
-        FunctionsCodeDetectionsHandler(self.__dependencies.functions_code_detections_service,
-                                       self.__dependencies.plugin_icon).register()
-        self._functions_code_detections_hook.hook()
+        icon = self.__dependencies.plugin_icon
+        self.__registered = [
+            (FunctionsCodeDetectionsHandler(self.__dependencies.functions_code_detections_service, icon),
+             FunctionsCodeDetectionsHook()),
+            (FunctionRetrohuntHandler(self.__dependencies.function_retrohunt_service, icon),
+             FunctionRetrohuntHook()),
+            (ClusterAnalysisHandler(self.__dependencies.cluster_analysis_service, icon),
+             ClusterAnalysisHook()),
+            # this handler is only used by the UI hook for the disasm context menu
+            (FunctionRetrohuntDisassemblyViewHandler(self.__dependencies.function_retrohunt_service, icon),
+             FunctionRetrohuntDisassemblyViewHook()),
+        ]
+        for handler, hook in self.__registered:
+            handler.register()
+            hook.hook()
 
-        FunctionRetrohuntHandler(self.__dependencies.function_retrohunt_service,
-                                 self.__dependencies.plugin_icon).register()
-        self._function_retrohunt_hook.hook()
-
-        ClusterAnalysisHandler(self.__dependencies.cluster_analysis_service,
-                               self.__dependencies.plugin_icon).register()
-        self._cluster_analysis_hook.hook()
-
-        # this handler is only used by the UI hook for the disasm context menu
-        FunctionRetrohuntDisassemblyViewHandler(self.__dependencies.function_retrohunt_service,
-                                                self.__dependencies.plugin_icon).register()
-        self._function_retrohunt_disassembly_view_hook.hook()
+    def unload(self):
+        for handler, hook in self.__registered:
+            hook.unhook()
+            handler.unregister()
+        self.__registered = []

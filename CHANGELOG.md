@@ -1,5 +1,49 @@
 # Changelog
 
+## [Unreleased]
+
+- The plugin no longer prints an import error when IDA runs without a GUI (`idat`, idalib); it is skipped there.
+- API requests run in the background behind a cancelable wait box and no longer freeze IDA. They time out
+  when the host is unreachable, and each request is faster (the fixed 0.7 s delay is gone, connections are reused).
+- The settings dialog accepts the instance name or the full address of the web app, rejects anything else, and
+  masks the API key. Settings saved by earlier versions with a full address keep working.
+- The API key is stored in the keychain of the operating system (macOS Keychain, Windows Credential Manager,
+  the Secret Service on Linux) through the new `keyring` dependency. Where no keychain is available it stays
+  in the settings file, which only the current user can read.
+- The settings file moved from `plugins/threatray/config.json` to `threatray/config.json` in the IDA user
+  directory, so upgrading the plugin with a plugin manager no longer deletes it. Existing settings are migrated
+  automatically.
+- Canceling a request now aborts it instead of leaving it running in the background.
+- Attribute Functions applies its results about twice as fast, and re-applying unchanged settings about three
+  times as fast. A function name IDA rejects no longer opens a warning dialog per function.
+- Retrohunt Functions is available in the pseudocode view and shows progress while it fetches the function list.
+- Dialogs of the plugin are attached to the IDA window instead of floating on their own.
+- Dark themes installed by the user are recognized by the palette they give IDA, not only the built-in ones
+  by name.
+- IDA started in batch mode (`-A`) without stored settings no longer stops at the settings dialog.
+- Attribute Functions no longer shortens function names that contain `__` (for example `__libc_csu_init`)
+  each time the results are applied again. Detection names in function names now use single underscores only.
+- Applying Attribute Functions results to 5,000 or more functions shows a wait box and keeps IDA's window
+  updating while it runs.
+- Hooks, actions and the plugin icon are released when the database is closed.
+- The minimum `requests` version is 2.33, the first without known security advisories.
+- Fixed errors on unexpected API responses and missing settings being shown as Python tracebacks. Responses are
+  checked against the expected field types before they are used.
+- Result tables with tens of thousands of rows no longer freeze when rows are shown, filtered or sorted: showing
+  76,000 rows took 12 s and now takes a fraction of a second. Long cell text is cut off instead of wrapped.
+- Result tables stay responsive with large results: filtering is debounced, and cell colors, fonts and the
+  filtered rows are no longer recomputed for every painted cell.
+- Result tables: Enter opens the selected entry like a double-click, Ctrl+F focuses the filter, address columns
+  sort numerically and use the system fixed-width font, and the input hashes and addresses can be selected.
+- Fixed "Show unmatched functions" having no effect on IDA 9.2 and newer.
+- Fixed the retrohunt result failing to filter when an input function has no matches, and "Copy link" failing
+  on entries without a link.
+- Copying several cells neutralizes cells that a spreadsheet would run as a formula; a single cell is copied
+  as it is.
+- CSV export: cells that a spreadsheet would run as a formula are neutralized, non-ASCII text and commas are
+  written unchanged, multi-line cells no longer break rows on Windows, and a failed write shows a message.
+- The retrohunt threshold dialog stays open and shows the error when the entered value is invalid.
+
 ## [3.0.5] - 2026-11-13
 
 - The plugin can now be installed with `hcli plugin install threatray` on IDA 9.5, and on later IDA releases

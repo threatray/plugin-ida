@@ -2,9 +2,10 @@ import unittest
 import uuid
 from unittest.mock import MagicMock
 
-from hamcrest import assert_that, is_
+from hamcrest import assert_that, calling, is_, raises
 
 from threatray_ida.adapters.threatray_plugin_setup_error import ThreatrayPluginSetupError
+from threatray_ida.application.validation_error import ValidationError
 from threatray_ida.views.controllers.settings_controller import SettingsController
 
 
@@ -25,6 +26,22 @@ class TestSettingsController(unittest.TestCase):
             {'realm': realm,
              'api_key': api_key}
         ))
+
+    def test_save_settings_stores_the_instance_name_of_a_pasted_url(self):
+        settings_provider = MagicMock()
+        controller = SettingsController(settings_provider=settings_provider, version='1', email='email')
+
+        controller.save_settings('https://realm.analysis.threatray.com/', ' api_key ')
+
+        assert_that(settings_provider.store_settings.call_args.kwargs, is_({'realm': 'realm', 'api_key': 'api_key'}))
+
+    def test_save_settings_rejects_invalid_input_without_storing_it(self):
+        settings_provider = MagicMock()
+        controller = SettingsController(settings_provider=settings_provider, version='1', email='email')
+
+        assert_that(calling(controller.save_settings).with_args('evil.com/', 'api_key'), raises(ValidationError))
+        assert_that(calling(controller.save_settings).with_args('realm', ''), raises(ValidationError))
+        assert_that(settings_provider.store_settings.call_count, is_(0))
 
     def test_empty_settings_succeed(self):
         settings_provider = MagicMock()

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional, Tuple, Union
+from typing import Dict, FrozenSet, List, Optional, Tuple, Union
 
 from threatray_ida.application.color_selector_factory import ColorSelectorFactory
 from threatray_ida.application.threatray_api import ThreatrayApi
@@ -56,6 +56,13 @@ class FunctionRetrohuntResultController(TableController):
         self.__threatray_api = threatray_api
         self.__color_selector_factory = color_selector_factory
         self.__mediator = mediator
+        self.__header = self.__build_header()
+        self.__table_sorter: TableSorter = self.__build_table_sorter()
+        self.__monospace_columns = self.__get_monospace_columns()
+        self.__hyperlink_color: Optional[int] = None
+        self.__best_matches: Dict[int, Tuple[Optional[FunctionMatch], ...]] = {
+            id(code_region): tuple(_get_best_match(f.matches) for f in code_region.matching_input_functions)
+            for code_region in result}
         self.__data = self.__get_data(result)
         self.__displayed_data = self.__data
         self.__min_similarity = MatchSimilarity.LOW
@@ -63,6 +70,9 @@ class FunctionRetrohuntResultController(TableController):
 
     @property
     def header(self) -> Tuple[str, ...]:
+        return self.__header
+
+    def __build_header(self) -> Tuple[str, ...]:
         header = list(BASE_HEADER)
         if self.__only_one_input_function:
             header.append(MATCHING_FUNCTION_ADDRESSES_HEADER)
@@ -70,12 +80,15 @@ class FunctionRetrohuntResultController(TableController):
             header.extend([FUNCTION_MATCHES_HEADER, QUERY_TO_MATCHING_FUNCTION_ADDRESSES_HEADER])
         return tuple(header)
 
-    @property
-    def __table_sorter(self) -> TableSorter:
+    def __build_table_sorter(self) -> TableSorter:
         if self.__only_one_input_function:
-            return FunctionMatchTableSorter(self.header.index(MATCHING_FUNCTION_ADDRESSES_HEADER))
-        else:
-            return PrevalenceScoreTableSorter(self.header.index(FUNCTION_MATCHES_HEADER))
+            return FunctionMatchTableSorter(self.__header.index(MATCHING_FUNCTION_ADDRESSES_HEADER))
+        return PrevalenceScoreTableSorter(self.__header.index(FUNCTION_MATCHES_HEADER))
+
+    def __get_monospace_columns(self) -> FrozenSet[int]:
+        headers = [ANALYSIS_ID_HEADER, FILE_HASH_HEADER, MATCHING_FUNCTION_ADDRESSES_HEADER,
+                   QUERY_TO_MATCHING_FUNCTION_ADDRESSES_HEADER]
+        return frozenset(self.__header.index(h) for h in headers if h in self.__header)
 
     @property
     def data(self) -> List[TableRowData[FunctionRetrohuntCodeRegionWithAddresses]]:
@@ -85,10 +98,10 @@ class FunctionRetrohuntResultController(TableController):
         # return full analysis id and file hash
         if self.__only_one_input_function and \
             column == self.header.index(MATCHING_FUNCTION_ADDRESSES_HEADER):
-            return str(self.data[row].display_values[column]).replace(',', ';').replace('\n', '  ')
+            return str(self.data[row].display_values[column]).replace('\n', '  ')
         if not self.__only_one_input_function and \
             column == self.header.index(QUERY_TO_MATCHING_FUNCTION_ADDRESSES_HEADER):
-            return str(self.data[row].display_values[column]).replace(',', ';').replace('\n', '  ')
+            return str(self.data[row].display_values[column]).replace('\n', '  ')
 
         if column == self.header.index(ANALYSIS_ID_HEADER):
             return self.data[row].model.analysis_id
@@ -116,8 +129,9 @@ class FunctionRetrohuntResultController(TableController):
             function = row_data.model
             all_matches_meet_criteria = True
 
-            for input_function in function.matching_input_functions:
-                match = _get_best_match(input_function.matches)
+            for match in self.__best_matches[id(function)]:
+                if match is None:
+                    continue
                 if self.__min_similarity == MatchSimilarity.LOW:
                     similarity_ok = True
                 elif self.__min_similarity == MatchSimilarity.MEDIUM:
@@ -141,7 +155,9 @@ class FunctionRetrohuntResultController(TableController):
 
     def get_text_color(self, column: int) -> Optional[int]:
         if column in (self.header.index(ANALYSIS_ID_HEADER), self.header.index(FILE_HASH_HEADER)):
-            return self.__color_selector_factory.build().select_hyperlink_color_rgb()
+            if self.__hyperlink_color is None:
+                self.__hyperlink_color = self.__color_selector_factory.build().select_hyperlink_color_rgb()
+            return self.__hyperlink_color
         return None
 
     def get_tooltip(self, column: int) -> Optional[str]:
@@ -152,12 +168,7 @@ class FunctionRetrohuntResultController(TableController):
         return None
 
     def get_font(self, column: int) -> Optional[str]:
-        columns_with_monospace = [self.header.index(ANALYSIS_ID_HEADER), self.header.index(FILE_HASH_HEADER)]
-        if MATCHING_FUNCTION_ADDRESSES_HEADER in self.header:
-            columns_with_monospace.append(self.header.index(MATCHING_FUNCTION_ADDRESSES_HEADER))
-        if QUERY_TO_MATCHING_FUNCTION_ADDRESSES_HEADER in self.header:
-            columns_with_monospace.append(self.header.index(QUERY_TO_MATCHING_FUNCTION_ADDRESSES_HEADER))
-        if column in columns_with_monospace:
+        if column in self.__monospace_columns:
             return MONOSPACE_FONT
         return None
 
@@ -203,7 +214,7 @@ class FunctionRetrohuntResultController(TableController):
         log.info(f'Found {len(unique_hashes)} matching files.')
         results = []
         for r in sorted(result, key=lambda i: (i.nr_of_function_matches,
-                                               -datetime.fromisoformat(i.analysis_created_at).timestamp(),
+                                               -_parse_timestamp(i.analysis_created_at),
                                                i.analysis_id, i.pid, i.base, i.hash_sha256)):
             location = f'PID: {r.pid} | Base: {hex(r.base)}' if r.pid else 'Static analysis'
             display_values = [r.analysis_id[:SHORTENED_ANALYSIS_ID_LENGTH],
@@ -246,12 +257,24 @@ def _get_query_to_matching_function_content(result: FunctionRetrohuntCodeRegionW
     return sorted(matching_addresses)
 
 
-def _get_best_match(matches: Tuple[FunctionMatch, ...]) -> FunctionMatch:
-    return sorted(matches, key=lambda m: (m.confidence, -m.score, m.address))[0]
+def _parse_timestamp(value: str) -> float:
+    try:
+        return datetime.fromisoformat(value[:-1] + '+00:00' if value.endswith('Z') else value).timestamp()
+    except (ValueError, TypeError, AttributeError, OverflowError, OSError):
+        log.warning(f'Could not parse the analysis creation time {value!r}.')
+        return 0.0
+
+
+def _best_match_key(match: FunctionMatch):
+    return match.confidence, -match.score, match.address
+
+
+def _get_best_match(matches: Tuple[FunctionMatch, ...]) -> Optional[FunctionMatch]:
+    return min(matches, key=_best_match_key, default=None)
 
 
 def _get_best_match_text(matches: Tuple[FunctionMatch, ...]) -> str:
-    best_match = _get_best_match(matches)
+    best_match = min(matches, key=_best_match_key)
     return (f'{hex(best_match.address)} '
             f'[Sim: {best_match.similarity.value} ({best_match.score:.2f}), '
             f'Conf: {best_match.confidence.value}]')

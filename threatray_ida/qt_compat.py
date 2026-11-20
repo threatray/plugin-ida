@@ -33,6 +33,15 @@ def wrap_instance(ptr: int, cls):
     return _wrap_instance(int(ptr), cls)
 
 
+def get_dialog_parent():
+    """Return the window dialogs belong to: the active one, or IDA's main window while IDA is in the background."""
+    window = QtWidgets.QApplication.activeWindow()
+    if window is None:
+        window = next((widget for widget in QtWidgets.QApplication.topLevelWidgets()
+                       if isinstance(widget, QtWidgets.QMainWindow)), None)
+    return window
+
+
 __all__ = [
     "QAction",
     "QDialog",
@@ -43,5 +52,6 @@ __all__ = [
     "QtGui",
     "QtWidgets",
     "Signal",
+    "get_dialog_parent",
     "wrap_instance",
 ]

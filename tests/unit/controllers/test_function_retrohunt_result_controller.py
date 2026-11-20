@@ -84,7 +84,7 @@ class TestFunctionRetrohuntResultController(unittest.TestCase):
         expected_data_for_export = (
             '842dde0b-6049-4fd2-b35f-3bd09b397bf5', 'dummy-label', '2023-09-03 08:06:42', 'Static analysis',
             'ff10be3cadebe7bcb3231346fe4fc5441bb37d019944d38e0157f25b38cb1c6f', 'unknown', '',
-            '0x402e2a [Sim: high (1.00); Conf: high]')
+            '0x402e2a [Sim: high (1.00), Conf: high]')
 
         data = controller.data
         data_for_export = tuple(controller.get_data_for_export(row, column)
@@ -361,6 +361,46 @@ class TestFunctionRetrohuntResultController(unittest.TestCase):
                 assert_that(font, is_(not_none()))
             else:
                 assert_that(font, is_(none()))
+
+    def test_filter_with_input_function_without_matches(self):
+        no_matches = replace(RESULT, matching_input_functions=(
+            InputAddressWithMatchingAddresses(address=Address(0x40202a), address_offset=AddressOffset(0x40202a),
+                                              matches=()),))
+        controller = self.__get_controller(selected_function_addresses=SELECTED_FUNCTION_ADDRESSES,
+                                           result=[no_matches, RESULT])
+        controller.set_min_similarity(MatchSimilarity.HIGH)
+        controller.set_min_confidence(MatchConfidence.HIGH)
+        controller.filter('')
+        assert_that(len(controller.data), is_(2))
+
+    def test_unparsable_analysis_creation_time_does_not_break_the_data(self):
+        results = [replace(RESULT, analysis_created_at='2024-01-01T00:00:00Z'),
+                   replace(RESULT, analysis_created_at='not a date', analysis_id='a'),
+                   replace(RESULT, analysis_created_at='2024-01-01 00:00:00', analysis_id='b')]
+        controller = self.__get_controller(selected_function_addresses=SELECTED_FUNCTION_ADDRESSES, result=results)
+        assert_that(len(controller.data), is_(3))
+        assert_that(controller.data[-1].model.analysis_created_at, is_('not a date'))
+
+    def test_hyperlink_color_is_resolved_once(self):
+        color_selector_factory = MagicMock()
+        controller = FunctionRetrohuntResultController(
+            selected_function_addresses=SELECTED_FUNCTION_ADDRESSES, result=[RESULT],
+            threatray_api=MockThreatrayApi(), color_selector_factory=color_selector_factory, mediator=MagicMock())
+        for _ in range(3):
+            controller.get_text_color(0)
+        assert_that(color_selector_factory.build.call_count, is_(1))
+
+    def test_export_keeps_commas(self):
+        results = [replace(RESULT, matching_input_functions=(
+            InputAddressWithMatchingAddresses(address=Address(0x40202a), address_offset=AddressOffset(0x40202a),
+                                              matches=(create_mock_function_match(0x402e2a),)),
+            InputAddressWithMatchingAddresses(address=Address(0x40203a), address_offset=AddressOffset(0x40203a),
+                                              matches=(create_mock_function_match(0x402e3a),))))]
+        controller = self.__get_controller(selected_function_addresses=SELECTED_FUNCTION_ADDRESSES, result=results)
+        column = len(controller.header) - 1
+        assert_that(controller.get_data_for_export(0, column),
+                    is_('0x40202a->0x402e2a [Sim: high (1.00), Conf: high]  '
+                        '0x40203a->0x402e3a [Sim: high (1.00), Conf: high]'))
 
 
 RESULT = FunctionRetrohuntCodeRegionWithAddresses(

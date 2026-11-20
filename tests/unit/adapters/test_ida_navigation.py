@@ -57,6 +57,6 @@ class TestIdaNavigation(unittest.TestCase):
 
     def test_failed_ranges_leave_the_existing_view_untouched(self) -> None:
         self.api.__dict__['get_func_ranges'] = lambda ranges, function: -1
-        with self.assertLogs(level='WARNING'):
+        with self.assertLogs('plugin.threatray', level='WARNING'):
             self.navigate(0x1000, 'Detections')
         self.assertEqual(self.calls, [])
