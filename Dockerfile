@@ -26,7 +26,7 @@ COPY --from=builder /app /app
 ENV HOME=/app/threatray-ida
 WORKDIR $HOME
 COPY pyproject.toml $HOME
-RUN /app/venv/bin/uv pip compile pyproject.toml --extra dev --universal --upgrade -o uv.lock
+RUN /app/venv/bin/uv pip compile pyproject.toml --extra dev --universal --python-version 3.10 --upgrade -o uv.lock
 
 FROM builder AS base
 
